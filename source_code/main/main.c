@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include "config.h"
+#include "barcos/barco.h"
+
 
 void app_main(void)
 {
@@ -37,4 +39,17 @@ void app_main(void)
     for (int i = 0; i < config.barcos.cantidad; i++)
         printf("%s ", config.barcos.derecha[i]);
     printf("\n");
+	
+	
+	barcos_init(&config);
+
+	// El scheduler propio va a ir despertando barcos:
+	while (1) {
+	    barco_t *b = barcos_get(1);
+
+	    // Ejemplo: despierte barco 0
+	    xTaskNotifyGive(b->handle);
+
+	    vTaskDelay(pdMS_TO_TICKS(config.scheduler.quantum_ms));
+	}
 }
