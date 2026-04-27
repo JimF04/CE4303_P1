@@ -1,146 +1,76 @@
 #include "flow_policy.h"
+#include "canal.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
-/* ===== LEETRERO ===== */
-typedef struct {
-    int dir;
-    int counter;
-} letrero_state_t;
-
-/* ===== EQUIDAD ===== */
-typedef struct {
-    int W;
-    int count;
-    int dir;
-} equidad_state_t;
-
-/* =========================
-   LETRERO
-   ========================= */
-
-static void letrero_init(flow_policy_t *self, canal_t *c, const config_t *cfg)
-{
-    letrero_state_t *s = malloc(sizeof(letrero_state_t));
-    s->dir = 0;
-    s->counter = 0;
-    self->state = s;
-}
-
-static int letrero_left(flow_policy_t *self, canal_t *c)
-{
-    return ((letrero_state_t*)self->state)->dir == 0;
-}
-
-static int letrero_right(flow_policy_t *self, canal_t *c)
-{
-    return ((letrero_state_t*)self->state)->dir == 1;
-}
-
-static void letrero_tick(flow_policy_t *self, canal_t *c)
-{
-    letrero_state_t *s = self->state;
-    s->counter++;
-
-    if (s->counter >= 10) {
-        s->dir ^= 1;
-        s->counter = 0;
-    }
-}
-
-/* =========================
-   EQUIDAD
-   ========================= */
-
-static void equidad_init(flow_policy_t *self, canal_t *c, const config_t *cfg)
-{
-    equidad_state_t *s = malloc(sizeof(equidad_state_t));
-    s->W = cfg->canal.parametro_w;
-    s->count = 0;
-    s->dir = 0;
-    self->state = s;
-}
-
-static int equidad_left(flow_policy_t *self, canal_t *c)
-{
-    equidad_state_t *s = self->state;
-
-    if (s->dir == 0) return 1;
-    return s->count < s->W;
-}
-
-static int equidad_right(flow_policy_t *self, canal_t *c)
-{
-    equidad_state_t *s = self->state;
-
-    if (s->dir == 1) return 1;
-    return s->count < s->W;
-}
-
-static void equidad_tick(flow_policy_t *self, canal_t *c)
-{
-    equidad_state_t *s = self->state;
-
-    s->count++;
-
-    if (s->count >= s->W) {
-        s->count = 0;
-        s->dir ^= 1;
-    }
-}
-
-/* =========================
+/* ═══════════════════════════════════════════════════════
    TICO
-   ========================= */
+   ─ Sin control de flujo.
+   ─ Garantiza no-colisión: si hay barcos de una dirección
+     dentro, la contraria NO puede entrar.
+   ─ Si solo hay barcos de un lado, pasan sin restricción.
+   ═══════════════════════════════════════════════════════ */
 
 static void tico_init(flow_policy_t *self, canal_t *c, const config_t *cfg)
 {
+    (void)cfg;
     self->state = NULL;
 }
 
-static int tico_left(flow_policy_t *self, canal_t *c)
+// Devuelve la dirección activa en el canal (-1 si vacío)
+static int tico_dir_activa(canal_t *c)
 {
-    return 1;
+    for (int i = 0; i < c->largo; i++) {
+        if (c->slots[i] != NULL)
+            return c->slots[i]->direccion;
+    }
+    return -1; // canal vacío
 }
 
-static int tico_right(flow_policy_t *self, canal_t *c)
+static int tico_allow_left(flow_policy_t *self, canal_t *c)
 {
-    return 1;
+    (void)self;
+    int dir = tico_dir_activa(c);
+    // Puede entrar si el canal está vacío o ya van hacia la izquierda (dir=0)
+    return (dir == -1 || dir == 0);
+}
+
+static int tico_allow_right(flow_policy_t *self, canal_t *c)
+{
+    (void)self;
+    int dir = tico_dir_activa(c);
+    return (dir == -1 || dir == 1);
 }
 
 static void tico_tick(flow_policy_t *self, canal_t *c)
 {
+    (void)self; (void)c;
 }
 
-/* =========================
+/* ═══════════════════════════════════════════════════════
    FACTORY
-   ========================= */
+   ═══════════════════════════════════════════════════════ */
 
 flow_policy_t *flow_policy_create(const char *mode, const config_t *cfg)
 {
     flow_policy_t *p = malloc(sizeof(flow_policy_t));
+    if (!p) return NULL;
 
-    if (strcmp(mode, "letrero") == 0) {
-        p->init = letrero_init;
-        p->allow_left = letrero_left;
-        p->allow_right = letrero_right;
-        p->tick = letrero_tick;
+    if (strcmp(mode, "TICO") == 0) {
+		p->init        = tico_init;
+		p->allow_left  = tico_allow_left;
+		p->allow_right = tico_allow_right;
+		p->tick        = tico_tick;
+		p->state       = NULL;
         return p;
     }
 
-    if (strcmp(mode, "equidad") == 0) {
-        p->init = equidad_init;
-        p->allow_left = equidad_left;
-        p->allow_right = equidad_right;
-        p->tick = equidad_tick;
-        return p;
-    }
-
-    /* default = tico */
-    p->init = tico_init;
-    p->allow_left = tico_left;
-    p->allow_right = tico_right;
-    p->tick = tico_tick;
-
+    // Default = TICO
+    p->init        = tico_init;
+    p->allow_left  = tico_allow_left;
+    p->allow_right = tico_allow_right;
+    p->tick        = tico_tick;
+    p->state       = NULL;
     return p;
 }

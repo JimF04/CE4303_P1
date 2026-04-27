@@ -5,16 +5,30 @@
 #include "../canal/canal.h"
 #include "../config.h"
 
-// Tipo de función que devuelve el siguiente barco
+/* =========================
+   TIPOS DE FUNCIÓN
+   ========================= */
 typedef barco_t* (*sched_next_fn)(void);
+typedef void (*sched_init_fn)(canal_t *canal, const config_t *cfg);
+typedef void (*sched_release_fn)(void);
+typedef void (*sched_enqueue_fn)(barco_t *b);   
+typedef void (*sched_notify_done_fn)(barco_t *b); 
 
-// Cada algoritmo implementa estas funciones
+/* =========================
+   INTERFAZ SCHEDULER
+   ========================= */
 typedef struct {
     void (*init)(canal_t *canal, const config_t *cfg);
     sched_next_fn next;
+	sched_release_fn release;
+	sched_enqueue_fn enqueue;       
+	sched_notify_done_fn notify_done;
 } scheduler_t;
 
-// Devuelve el scheduler según el config
+/* =========================
+   FACTORY
+   ========================= */
+
 scheduler_t scheduler_get(const config_t *cfg);
 
 #endif /* MAIN_SCHEDULER_SCHEDULER_H_ */

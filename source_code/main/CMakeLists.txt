@@ -7,6 +7,7 @@ set(SOURCES
     "config.c"
     "barcos/barco.c"
     "canal/canal.c"
+    "canal/flow_policy.c"
     "scheduler/scheduler_factory.c"
     "scheduler/scheduler_fcfs.c"
     )

@@ -8,6 +8,13 @@
 
 #define BARCOS_MAX 8
 
+typedef enum {
+    READY,
+    RUNNING,
+    BLOCKED,
+    DONE
+} barco_state_t;
+
 typedef struct {
     int id;
     char tipo[16];
@@ -16,6 +23,8 @@ typedef struct {
     int velocidad;
 	char nombre[32];
     TaskHandle_t handle; // referencia al task del barco
+	
+	barco_state_t state;
 	
 } barco_t;
 

@@ -4,7 +4,6 @@
 #include <math.h>
 
 
-
 static barco_t barcos[8];
 static int barcos_total = 0;
 static int id_global = 0;
@@ -64,6 +63,8 @@ void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 
     b->direccion = direccion_b;
     b->pos_canal = -1;
+	
+	b->state = READY;  
 
     // Asignar velocidad correctamente
     asignar_velocidad(cfg, b);
