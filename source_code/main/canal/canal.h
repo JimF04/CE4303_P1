@@ -6,6 +6,8 @@
 
 #define MAX_LARGO 50
 
+typedef struct flow_policy flow_policy_t;
+
 typedef struct{
 	int largo;
 	int direccion_actual; // 0 = izquierda, 1 = derecha
@@ -28,5 +30,7 @@ void canal_insertar(canal_t *c, barco_t *b);
 void canal_avanzar(canal_t *c);
 
 int canal_puede_entrar(canal_t *c, barco_t *b);
+
+void canal_print(canal_t *c);
 
 #endif /* MAIN_CANAL_CANAL_H_ */

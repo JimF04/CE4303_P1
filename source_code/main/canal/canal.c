@@ -26,6 +26,12 @@ void canal_init(canal_t *c, const config_t *cfg)
 
 	// Direccion por default: izquierda
 	c->direccion_actual = 0;
+	
+	c->ocupacion = 0;
+
+	for (int i = 0; i < c->largo; i++) {
+	    c->slots[i] = NULL;
+	}
 }
 
 // Metodo para avanzar los barcos 
@@ -36,7 +42,9 @@ void canal_avanzar(canal_t *c)
     int start = (dir == +1) ? c->largo - 1 : 0;
     int end   = (dir == +1) ? -1 : c->largo;
     int step  = (dir == +1) ? -1 : +1;
-
+	
+	printf("[CANAL] Avanzando...\n");
+	
     for (int i = start; i != end; i += step) {
 
         barco_t *b = c->slots[i];
@@ -49,12 +57,15 @@ void canal_avanzar(canal_t *c)
             printf("Barco %d salió\n", b->id);
             c->slots[i] = NULL;
             c->ocupacion--;
+			printf("[CANAL] Barco %d SALIO del canal\n", b->id);
             continue;
         }
 
         c->slots[i] = NULL;
         c->slots[nueva_pos] = b;
         b->pos_canal = nueva_pos;
+		
+		printf("  Barco %d -> %d\n", b->id, nueva_pos);
     }
 }
 
@@ -70,7 +81,9 @@ void canal_insertar(canal_t *c, barco_t *b)
         c->slots[entrada] = b;
         b->pos_canal = entrada;
         c->ocupacion++;
+		printf("[CANAL] Barco %d entra en %d\n", b->id, b->pos_canal);
     }
+	
 }
 
 // Metodo para verificar si puede entrar al canal
@@ -96,4 +109,18 @@ int canal_puede_entrar(canal_t *c, barco_t *b)
     }
 
     return 1;
+}
+
+void canal_print(canal_t *c)
+{
+    printf("[");
+
+    for (int i = 0; i < c->largo; i++) {
+        if (c->slots[i] == NULL)
+            printf(".");
+        else
+            printf("%d", c->slots[i]->id);
+    }
+
+    printf("]\n");
 }

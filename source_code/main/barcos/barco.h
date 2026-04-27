@@ -6,6 +6,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#define BARCOS_MAX 8
+
 typedef struct {
     int id;
     char tipo[16];

@@ -3,7 +3,7 @@
 #include "barco.h"
 #include <math.h>
 
-#define BARCOS_MAX 8
+
 
 static barco_t barcos[8];
 static int barcos_total = 0;
@@ -22,9 +22,9 @@ static void barco_task(void *arg)
     while (1) {
 
         // El barco NO se mueve solo
-        printf("%s ejecuta (vel=%d)\n",
-               b->nombre, b->velocidad);
-
+		printf("[TASK] %s ejecuta (vel=%d, pos=%d)\n",
+		       b->nombre, b->velocidad, b->pos_canal);
+			   
         // Espera siguiente quantum
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     }
