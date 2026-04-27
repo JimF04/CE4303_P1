@@ -9,10 +9,12 @@
 typedef struct {
     int id;
     char tipo[16];
-    int direccion; // 0 = izquierda → derecha, 1 = derecha → izquierda
+    int direccion; // 0 = izquierda, 1 = derecha
     int posicion;
     int velocidad;
+	char nombre[32];
     TaskHandle_t handle; // referencia al task del barco
+	
 } barco_t;
 
 
@@ -21,6 +23,7 @@ barco_t* barcos_get(int index);
 int barcos_count();
 void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b);
 void asignar_velocidad(const config_t *cfg, barco_t *b);
+void eliminar_barco(barco_t *b);
 
 
 

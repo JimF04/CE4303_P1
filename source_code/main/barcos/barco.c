@@ -13,9 +13,6 @@ static void barco_task(void *arg)
 {
     barco_t *b = (barco_t *)arg;
 
-    printf("Barco %d (%s) creado. Esperando permiso...\n", 
-            b->id, b->tipo);
-
     // BLOQUEO INICIAL
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
@@ -23,8 +20,8 @@ static void barco_task(void *arg)
 
         // Cuando scheduler lo despierta -> avanza 1 unidad
         b->posicion += b->velocidad;
-        printf("Barco %d avanza a posicion %d\n", 
-                b->id, b->posicion);
+		printf("%s avanza a posicion %d\n",
+		        b->nombre, b->posicion);
 
         // Se bloquea otra vez esperando nuevo quantum
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -51,11 +48,12 @@ void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
     // Asignar velocidad correctamente
     asignar_velocidad(cfg, b);
 
-    // Nombre dinámico del task
-    char task_name[32];
-    snprintf(task_name, sizeof(task_name), "barco_%d", b->id);
+	// Crear el nombre del barco (tipo + dirección + id)
+	char dir = (direccion_b == 0) ? 'L' : 'R';
+	snprintf(b->nombre, sizeof(b->nombre), "%s_%c_%d", tipo_b, dir, b->id);
 
-    xTaskCreate(barco_task, task_name, 4096, b, 2, &b->handle);
+	// Crear el task con un nombre persistente
+	xTaskCreate(barco_task, b->nombre, 4096, b, 2, &b->handle);
 
     id_global++;
     barcos_total++;
@@ -63,19 +61,18 @@ void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
     printf("Barco %d creado (%s)\n", b->id, b->tipo);
 }
 
-
 // Metodo para asignar la velocidad a los barcos
 void asignar_velocidad(const config_t *cfg, barco_t *b)
 {
     int base = cfg->barcos.velocidad_base;
 
-    if (strcmp(b->tipo, "NORMAL") == 0) {
+    if (strcmp(b->tipo, "NOR") == 0) {
         b->velocidad = base;
     } 
-    else if (strcmp(b->tipo, "PESQUERA") == 0) {
+    else if (strcmp(b->tipo, "PES") == 0) {
         b->velocidad = base + 1;
     } 
-    else if (strcmp(b->tipo, "PATRULLA") == 0) {
+    else if (strcmp(b->tipo, "PAT") == 0) {
         b->velocidad = base + 2;
     } 
     else {
@@ -100,6 +97,19 @@ void barcos_init(const config_t *cfg)
     }
 
     printf("Total barcos creados: %d\n", barcos_total);
+}
+
+// ========================
+//   ELIMINACION DE BARCOS
+// ========================
+
+void eliminar_barco(barco_t *b)
+{
+    if (b->handle != NULL) {
+        vTaskDelete(b->handle);
+        b->handle = NULL;
+        printf("Barco %d eliminado\n", b->id);
+    }
 }
 
 // ========================
