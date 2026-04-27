@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 #include "barco.h"
+#include <math.h>
 
-static barco_t barcos[20];
+#define BARCOS_MAX 8
+
+static barco_t barcos[8];
 static int barcos_total = 0;
 static int id_global = 0;
 
@@ -35,9 +38,27 @@ static void barco_task(void *arg)
 // Metodo para crear un barco (proceso)
 void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 {
-    barco_t *b = &barcos[id_global];
+	int capacidad_logica = cfg->barcos.cantidad * 2;
 
-    b->id = id_global;
+	if (capacidad_logica > BARCOS_MAX) {
+	    printf("ERROR: config.ini solicita %d barcos (máximo permitido = %d)\n",
+	           capacidad_logica, BARCOS_MAX);
+	    return;
+	}
+
+	if (barcos_total >= capacidad_logica) {
+	    printf("Límite del config alcanzado (%d barcos)\n", capacidad_logica);
+	    return;
+	}
+
+	if (barcos_total >= BARCOS_MAX) {
+	    printf("Límite físico alcanzado (%d barcos)\n", BARCOS_MAX);
+	    return;
+	}
+	
+
+	barco_t *b = &barcos[barcos_total];
+	b->id = id_global;
 
     strncpy(b->tipo, tipo_b, sizeof(b->tipo));
     b->tipo[15] = '\0';
@@ -52,13 +73,15 @@ void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 	char dir = (direccion_b == 0) ? 'L' : 'R';
 	snprintf(b->nombre, sizeof(b->nombre), "%s_%c_%d", tipo_b, dir, b->id);
 
-	// Crear el task con un nombre persistente
+	// Crear el task con nombre 
 	xTaskCreate(barco_task, b->nombre, 4096, b, 2, &b->handle);
 
     id_global++;
     barcos_total++;
 
     printf("Barco %d creado (%s)\n", b->id, b->tipo);
+
+ 
 }
 
 // Metodo para asignar la velocidad a los barcos
@@ -103,13 +126,24 @@ void barcos_init(const config_t *cfg)
 //   ELIMINACION DE BARCOS
 // ========================
 
-void eliminar_barco(barco_t *b)
+void eliminar_barco(int index)
 {
+    if (index < 0 || index >= barcos_total) return;
+
+    barco_t *b = &barcos[index];
+
     if (b->handle != NULL) {
         vTaskDelete(b->handle);
-        b->handle = NULL;
-        printf("Barco %d eliminado\n", b->id);
     }
+
+    // Compactar array
+    for (int i = index; i < barcos_total - 1; i++) {
+        barcos[i] = barcos[i + 1];
+    }
+
+    barcos_total--;
+
+    printf("Barco eliminado\n");
 }
 
 // ========================
