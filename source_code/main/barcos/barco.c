@@ -4,6 +4,7 @@
 
 static barco_t barcos[20];
 static int barcos_total = 0;
+static int id_global = 0;
 
 // ========================
 //   TAREA DE CADA BARCO
@@ -20,7 +21,7 @@ static void barco_task(void *arg)
         // Espera a que el scheduler lo despierte
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        // → Aquí avanza 1 unidad
+        // Aquí avanza 1 unidad
         b->posicion += b->velocidad;
 
         printf("Barco %d avanza a posición %d\n",
@@ -33,39 +34,72 @@ static void barco_task(void *arg)
 // ========================
 //   CREACIÓN DE BARCOS
 // ========================
+
+// Metodo para crear un barco (proceso)
+void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
+{
+    barco_t *b = &barcos[id_global];
+
+    b->id = id_global;
+
+    strncpy(b->tipo, tipo_b, sizeof(b->tipo));
+    b->tipo[15] = '\0';
+
+    b->direccion = direccion_b;
+    b->posicion = 0;
+
+    // Asignar velocidad correctamente
+    asignar_velocidad(cfg, b);
+
+    // Nombre dinámico del task
+    char task_name[32];
+    snprintf(task_name, sizeof(task_name), "barco_%d", b->id);
+
+    xTaskCreate(barco_task, task_name, 4096, b, 2, &b->handle);
+
+    id_global++;
+    barcos_total++;
+
+    printf("Barco %d creado (%s)\n", b->id, b->tipo);
+}
+
+
+// Metodo para asignar la velocidad a los barcos
+void asignar_velocidad(const config_t *cfg, barco_t *b)
+{
+    int base = cfg->barcos.velocidad_base;
+
+    if (strcmp(b->tipo, "NORMAL") == 0) {
+        b->velocidad = base;
+    } 
+    else if (strcmp(b->tipo, "PESQUERA") == 0) {
+        b->velocidad = base + 1;
+    } 
+    else if (strcmp(b->tipo, "PATRULLA") == 0) {
+        b->velocidad = base + 2;
+    } 
+    else {
+        b->velocidad = base; // fallback
+    }
+}
+
+// Metodo para crear barcos por default (depende del config)
 void barcos_init(const config_t *cfg)
 {
-    int id = 0;
+    id_global = 0;
+    barcos_total = 0;
 
-    // ------ BARCOS DE LA IZQUIERDA ------
+    // IZQUIERDA
     for (int i = 0; i < cfg->barcos.cantidad; i++) {
-        barco_t *b = &barcos[id];
-        b->id = id;
-        strncpy(b->tipo, cfg->barcos.izquierda[i], 16);
-        b->direccion = 0;
-        b->posicion = 0;
-        b->velocidad = cfg->barcos.velocidad_base;
-
-        xTaskCreate(barco_task, "barco_L", 4096, b, 2, &b->handle);
-        id++;
+        crear_barco(cfg, cfg->barcos.izquierda[i], 0);
     }
 
-    // ------ BARCOS DE LA DERECHA ------
+    // DERECHA
     for (int i = 0; i < cfg->barcos.cantidad; i++) {
-        barco_t *b = &barcos[id];
-        b->id = id;
-        strncpy(b->tipo, cfg->barcos.derecha[i], 16);
-        b->direccion = 1;
-        b->posicion = 0;
-        b->velocidad = cfg->barcos.velocidad_base;
-
-        xTaskCreate(barco_task, "barco_R", 4096, b, 2, &b->handle);
-        id++;
+        crear_barco(cfg, cfg->barcos.derecha[i], 1);
     }
 
-    barcos_total = id;
-
-    printf("Se crearon %d barcos\n", barcos_total);
+    printf("Total barcos creados: %d\n", barcos_total);
 }
 
 // ========================

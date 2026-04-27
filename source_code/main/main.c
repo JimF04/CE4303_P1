@@ -2,7 +2,6 @@
 #include "config.h"
 #include "barcos/barco.h"
 
-
 void app_main(void)
 {
     config_t config;
@@ -41,7 +40,11 @@ void app_main(void)
     printf("\n");
 	
 	
-	barcos_init(&config);
+	// Crear barcos por default
+	if (config.barcos.cfg_default == 1){
+		barcos_init(&config);
+	}
+
 
 	// El scheduler propio va a ir despertando barcos:
 	while (1) {

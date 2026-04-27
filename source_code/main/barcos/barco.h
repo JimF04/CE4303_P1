@@ -15,9 +15,12 @@ typedef struct {
     TaskHandle_t handle; // referencia al task del barco
 } barco_t;
 
+
 void barcos_init(const config_t *cfg);
 barco_t* barcos_get(int index);
 int barcos_count();
+void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b);
+void asignar_velocidad(const config_t *cfg, barco_t *b);
 
 
 
