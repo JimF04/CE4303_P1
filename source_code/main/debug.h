@@ -1,10 +1,3 @@
-/*
- * debug.h
- *
- *  Created on: Apr 26, 2026
- *      Author: winjimmy
- */
-
 #ifndef MAIN_DEBUG_H_
 #define MAIN_DEBUG_H_
 
