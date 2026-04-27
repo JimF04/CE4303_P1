@@ -13,21 +13,21 @@ static void barco_task(void *arg)
 {
     barco_t *b = (barco_t *)arg;
 
-    printf("Barco %d (%s) creado, esperando permiso...\n",
-           b->id, b->tipo);
+    printf("Barco %d (%s) creado. Esperando permiso...\n", 
+            b->id, b->tipo);
+
+    // BLOQUEO INICIAL
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     while (1) {
 
-        // Espera a que el scheduler lo despierte
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        // Aquí avanza 1 unidad
+        // Cuando scheduler lo despierta -> avanza 1 unidad
         b->posicion += b->velocidad;
+        printf("Barco %d avanza a posicion %d\n", 
+                b->id, b->posicion);
 
-        printf("Barco %d avanza a posición %d\n",
-               b->id, b->posicion);
-
-        // Luego se bloquea de nuevo hasta que el scheduler lo llame
+        // Se bloquea otra vez esperando nuevo quantum
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     }
 }
 
