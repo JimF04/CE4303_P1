@@ -26,6 +26,8 @@ typedef struct {
     int cfg_default;
     char izquierda[10][16];
     char derecha[10][16];
+	int cantidad_izquierda;  
+	int cantidad_derecha; 
 } barcos_cfg_t;
 
 typedef struct {

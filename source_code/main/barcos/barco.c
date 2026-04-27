@@ -106,20 +106,39 @@ void asignar_velocidad(const config_t *cfg, barco_t *b)
 // Metodo para crear barcos por default (depende del config)
 void barcos_init(const config_t *cfg)
 {
-    id_global = 0;
+    id_global    = 0;
     barcos_total = 0;
 
-    // IZQUIERDA
-    for (int i = 0; i < cfg->barcos.cantidad; i++) {
+    int n_izq = cfg->barcos.cantidad_izquierda;
+    int n_der = cfg->barcos.cantidad_derecha;
+
+    // Validar que no supere cantidad declarada
+    if (n_izq > cfg->barcos.cantidad) {
+        printf("[WARN] izquierda tiene %d tipos pero cantidad=%d, usando %d\n",
+               n_izq, cfg->barcos.cantidad, cfg->barcos.cantidad);
+        n_izq = cfg->barcos.cantidad;
+    }
+
+    if (n_der > cfg->barcos.cantidad) {
+        printf("[WARN] derecha tiene %d tipos pero cantidad=%d, usando %d\n",
+               n_der, cfg->barcos.cantidad, cfg->barcos.cantidad);
+        n_der = cfg->barcos.cantidad;
+    }
+
+    // IZQUIERDA — solo los que están definidos
+    for (int i = 0; i < n_izq; i++) {
+        if (strlen(cfg->barcos.izquierda[i]) == 0) break;
         crear_barco(cfg, cfg->barcos.izquierda[i], 0);
     }
 
-    // DERECHA
-    for (int i = 0; i < cfg->barcos.cantidad; i++) {
+    // DERECHA — solo los que están definidos
+    for (int i = 0; i < n_der; i++) {
+        if (strlen(cfg->barcos.derecha[i]) == 0) break;
         crear_barco(cfg, cfg->barcos.derecha[i], 1);
     }
 
-    printf("Total barcos creados: %d\n", barcos_total);
+    printf("[BARCOS] Total creados: %d (izq=%d, der=%d)\n",
+           barcos_total, n_izq, n_der);
 }
 
 // ========================

@@ -52,29 +52,46 @@ static int handler(void* user, const char* section,
         else if (strcmp(name, "cfg_default") == 0)
             cfg->barcos.cfg_default = atoi(value);
 
-        else if (strcmp(name, "izquierda") == 0) {
-            char tmp[128];
-            strncpy(tmp, value, sizeof(tmp));
-            char* token = strtok(tmp, ",");
-            int i = 0;
-            while (token && i < 10) {
-                strncpy(cfg->barcos.izquierda[i], token, sizeof(cfg->barcos.izquierda[i]));
-                token = strtok(NULL, ",");
-                i++;
-            }
-        }
+		else if (strcmp(name, "izquierda") == 0) {
+		    char tmp[128];
+		    strncpy(tmp, value, sizeof(tmp));
+		    char *token = strtok(tmp, ",");
+		    int i = 0;
+		    while (token && i < 4) {
+		        // trim espacios
+		        while (*token == ' ') token++;
+		        char *end = token + strlen(token) - 1;
+		        while (end > token && *end == ' ') *end-- = '\0';
 
-        else if (strcmp(name, "derecha") == 0) {
-            char tmp[128];
-            strncpy(tmp, value, sizeof(tmp));
-            char* token = strtok(tmp, ",");
-            int i = 0;
-            while (token && i < 10) {
-                strncpy(cfg->barcos.derecha[i], token, sizeof(cfg->barcos.derecha[i]));
-                token = strtok(NULL, ",");
-                i++;
-            }
-        }
+		        if (strlen(token) > 0) {
+		            strncpy(cfg->barcos.izquierda[i], token,
+		                    sizeof(cfg->barcos.izquierda[i]));
+		            i++;
+		        }
+		        token = strtok(NULL, ",");
+		    }
+		    cfg->barcos.cantidad_izquierda = i;   // ← contar aquí
+		}
+
+		else if (strcmp(name, "derecha") == 0) {
+		    char tmp[128];
+		    strncpy(tmp, value, sizeof(tmp));
+		    char *token = strtok(tmp, ",");
+		    int i = 0;
+		    while (token && i < 4) {
+		        while (*token == ' ') token++;
+		        char *end = token + strlen(token) - 1;
+		        while (end > token && *end == ' ') *end-- = '\0';
+
+		        if (strlen(token) > 0) {
+		            strncpy(cfg->barcos.derecha[i], token,
+		                    sizeof(cfg->barcos.derecha[i]));
+		            i++;
+		        }
+		        token = strtok(NULL, ",");
+		    }
+		    cfg->barcos.cantidad_derecha = i;     // ← contar aquí
+		}
     }
 
     return 1;
@@ -84,11 +101,13 @@ static int handler(void* user, const char* section,
 // PUBLIC API: config_load
 // =====================================================
 
-int config_load(config_t* cfg)
+int config_load(config_t *cfg)
 {
-    size_t file_size = config_ini_end - config_ini_start;
+    // Inicializar a cero para evitar basura
+    memset(cfg, 0, sizeof(config_t));
 
-    char* ini_data = malloc(file_size + 1);
+    size_t file_size = config_ini_end - config_ini_start;
+    char *ini_data = malloc(file_size + 1);
     memcpy(ini_data, config_ini_start, file_size);
     ini_data[file_size] = '\0';
 
