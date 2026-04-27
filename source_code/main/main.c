@@ -67,12 +67,9 @@ void app_main(void)
 
 	    /* 5. Imprimir estado actual */
 	    canal_print(&canal);
-		
-		print_tasks_real();
 
 	    if (sched.release)
 	        sched.release();
-
 			
 
 	    vTaskDelay(pdMS_TO_TICKS(config.scheduler.quantum_ms));

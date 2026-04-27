@@ -83,18 +83,29 @@ void canal_insertar(canal_t *c, barco_t *b)
     if (!b) return;
     if (b->state != RUNNING && b->state != READY) return;
 
-    // Toda la lógica de "quién puede entrar" la decide flow_policy
     if (b->direccion == 0 && !c->policy->allow_left(c->policy, c))  return;
     if (b->direccion == 1 && !c->policy->allow_right(c->policy, c)) return;
 
-    int entrada = (b->direccion == 0) ? 0 : (c->largo - 1);
+    // La entrada ya considera la velocidad:
+    // dir=0 (izq->der): entra en slot (velocidad - 1) porque avanzó vel slots desde -1
+    // dir=1 (der->izq): entra en slot (largo - velocidad) por el mismo motivo
+    int entrada;
+    if (b->direccion == 0)
+        entrada = b->velocidad - 1;
+    else
+        entrada = c->largo - b->velocidad;
+
+    if (entrada < 0 || entrada >= c->largo) return;
 
     if (c->slots[entrada] == NULL) {
         c->slots[entrada] = b;
         b->pos_canal = entrada;
         c->ocupacion++;
+        printf("[CANAL] Barco %d (%s) insertado en slot %d\n",
+               b->id, b->nombre, entrada);
     }
 }
+
 
 // Metodo para verificar si puede entrar al canal
 int canal_puede_entrar(canal_t *c, barco_t *b)
@@ -102,18 +113,23 @@ int canal_puede_entrar(canal_t *c, barco_t *b)
     if (!b) return 0;
 
     int dir = (b->direccion == 0) ? +1 : -1;
-    int entrada = (b->direccion == 0) ? 0 : (c->largo - 1);
 
-    // revisar TODO el camino según velocidad
+    // Punto de entrada ajustado a velocidad
+    int entrada;
+    if (b->direccion == 0)
+        entrada = b->velocidad - 1;
+    else
+        entrada = c->largo - b->velocidad;
+
+    if (entrada < 0 || entrada >= c->largo) return 0;
+
+    // Revisar desde la entrada hasta vel pasos adelante
+    // (el espacio que necesita para moverse el primer tick)
     for (int i = 0; i <= b->velocidad; i++) {
-
         int idx = entrada + dir * i;
 
-        if (idx < 0 || idx >= c->largo)
-            return 0;
-
-        if (c->slots[idx] != NULL)
-            return 0;
+        if (idx < 0 || idx >= c->largo) return 0;
+        if (c->slots[idx] != NULL)      return 0;
     }
 
     return 1;
