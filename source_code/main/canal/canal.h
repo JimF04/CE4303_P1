@@ -27,4 +27,6 @@ void canal_insertar(canal_t *c, barco_t *b);
 
 void canal_avanzar(canal_t *c);
 
+int canal_puede_entrar(canal_t *c, barco_t *b);
+
 #endif /* MAIN_CANAL_CANAL_H_ */

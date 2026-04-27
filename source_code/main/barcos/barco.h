@@ -10,7 +10,7 @@ typedef struct {
     int id;
     char tipo[16];
     int direccion; // 0 = izquierda, 1 = derecha
-    int posicion;
+    int pos_canal;
     int velocidad;
 	char nombre[32];
     TaskHandle_t handle; // referencia al task del barco

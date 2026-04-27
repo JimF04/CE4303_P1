@@ -1,6 +1,23 @@
 #include "canal.h"
 #include <string.h>
 
+// Determina el paso en la dirección del movimiento.
+// Si direccion == 0 (izquierda -> derecha), avanza +1.
+// Si direccion == 1 (derecha -> izquierda), avanza -1.
+static inline int dir_step(int direccion)
+{
+    return (direccion == 0) ? +1 : -1;
+}
+
+// Devuelve el índice de entrada del canal según la dirección.
+// Para dirección 0 (izquierda), la entrada es el inicio (0).
+// Para dirección 1 (derecha), la entrada es el final (largo-1).
+static inline int entrada_idx(canal_t *c, int direccion)
+{
+    return (direccion == 0) ? 0 : (c->largo - 1);
+}
+
+// Setear parametros del canal con el config
 void canal_init(canal_t *c, const config_t *cfg)
 {
 	c->largo = cfg->canal.largo;
@@ -11,63 +28,72 @@ void canal_init(canal_t *c, const config_t *cfg)
 	c->direccion_actual = 0;
 }
 
+// Metodo para avanzar los barcos 
 void canal_avanzar(canal_t *c)
 {
-    // salida según dirección 
-    if (c->direccion_actual == 0) {
-        // izq -> der
-        if (c->slots[c->largo - 1] != NULL) {
-            printf("Barco %d salió del canal\n",
-                   c->slots[c->largo - 1]->id);
-            c->slots[c->largo - 1] = NULL;
+    int dir = dir_step(c->direccion_actual);
+
+    int start = (dir == +1) ? c->largo - 1 : 0;
+    int end   = (dir == +1) ? -1 : c->largo;
+    int step  = (dir == +1) ? -1 : +1;
+
+    for (int i = start; i != end; i += step) {
+
+        barco_t *b = c->slots[i];
+        if (!b) continue;
+
+        int nueva_pos = i + dir * b->velocidad;
+
+        // salida del canal
+        if (nueva_pos < 0 || nueva_pos >= c->largo) {
+            printf("Barco %d salió\n", b->id);
+            c->slots[i] = NULL;
             c->ocupacion--;
+            continue;
         }
 
-        // mover todos hacia la derecha
-        for (int i = c->largo - 1; i > 0; i--) {
-            c->slots[i] = c->slots[i - 1];
-        }
-
-        c->slots[0] = NULL;
-    }
-
-    else {
-        // der -> izq
-        if (c->slots[0] != NULL) {
-            printf("Barco %d salió del canal\n",
-                   c->slots[0]->id);
-            c->slots[0] = NULL;
-            c->ocupacion--;
-        }
-
-        // mover todos hacia la izquierda
-        for (int i = 0; i < c->largo - 1; i++) {
-            c->slots[i] = c->slots[i + 1];
-        }
-
-        c->slots[c->largo - 1] = NULL;
+        c->slots[i] = NULL;
+        c->slots[nueva_pos] = b;
+        b->pos_canal = nueva_pos;
     }
 }
 
+// Metodo para insertar nuevo barco al canal
 void canal_insertar(canal_t *c, barco_t *b)
 {
-    // izq -> der
-    if ((c->direccion_actual == 0) && (b->direccion == 0)) {
+    if (b->direccion != c->direccion_actual)
+        return;
 
-        if (c->slots[0] == NULL) {
-            c->slots[0] = b;
-            c->ocupacion++;
-            printf("Barco %d entra al canal por IZQUIERDA\n", b->id);
-        }
+    int entrada = entrada_idx(c, b->direccion);
+
+    if (c->slots[entrada] == NULL) {
+        c->slots[entrada] = b;
+        b->pos_canal = entrada;
+        c->ocupacion++;
+    }
+}
+
+// Metodo para verificar si puede entrar al canal
+int canal_puede_entrar(canal_t *c, barco_t *b)
+{
+    int dir = dir_step(b->direccion);
+    int entrada = entrada_idx(c, b->direccion);
+
+    // entrada libre
+    if (c->slots[entrada] != NULL)
+        return 0;
+
+    // revisar rango de movimiento
+    for (int i = 1; i <= b->velocidad; i++) {
+
+        int idx = entrada + dir * i;
+
+        if (idx < 0 || idx >= c->largo)
+            break;
+
+        if (c->slots[idx] != NULL)
+            return 0;
     }
 
-    // der -> izq
-    else if ((c->direccion_actual == 1) && (b->direccion == 1)) {
-
-        if (c->slots[c->largo - 1] == NULL) {
-            c->slots[c->largo - 1] = b;
-            c->ocupacion++;
-            printf("Barco %d entra al canal por DERECHA\n", b->id);
-        }
-    }
+    return 1;
 }

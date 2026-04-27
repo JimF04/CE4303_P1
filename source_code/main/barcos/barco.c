@@ -21,12 +21,11 @@ static void barco_task(void *arg)
 
     while (1) {
 
-        // Cuando scheduler lo despierta -> avanza 1 unidad
-        b->posicion += b->velocidad;
-		printf("%s avanza a posicion %d\n",
-		        b->nombre, b->posicion);
+        // El barco NO se mueve solo
+        printf("%s ejecuta (vel=%d)\n",
+               b->nombre, b->velocidad);
 
-        // Se bloquea otra vez esperando nuevo quantum
+        // Espera siguiente quantum
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     }
 }
@@ -64,7 +63,7 @@ void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
     b->tipo[15] = '\0';
 
     b->direccion = direccion_b;
-    b->posicion = 0;
+    b->pos_canal = -1;
 
     // Asignar velocidad correctamente
     asignar_velocidad(cfg, b);

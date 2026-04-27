@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include "config.h"
-#include "barcos/barco.h"
 #include "debug.h"
+#include "barcos/barco.h"
+#include "canal/canal.h"
+
 
 void app_main(void)
 {
