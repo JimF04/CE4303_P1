@@ -10,6 +10,7 @@ set(SOURCES
     "canal/flow_policy.c"
     "scheduler/scheduler_factory.c"
     "scheduler/scheduler_fcfs.c"
+    "scheduler/scheduler_sjf.c"
     )
 
 idf_component_register(

@@ -38,6 +38,8 @@ void app_main(void)
 
 	int max_ticks = 46;
 
+	printf("\n\n===== INICIO PROGRAMA =====\n\n");
+
 	while (tick < max_ticks)
 	{
 	    printf("\n========== TICK %d ==========\n", tick++);
