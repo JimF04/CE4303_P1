@@ -1,3 +1,29 @@
 [gd_scene format=3 uid="uid://bjmfns2qatk4g"]
 
+[ext_resource type="PackedScene" uid="uid://dav56tlc33n8n" path="res://scenes/WaterPlane.tscn" id="1_4xfga"]
+[ext_resource type="PackedScene" uid="uid://csgfyxufrxnxa" path="res://normal_ship.tscn" id="2_paxxb"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_paxxb"]
+size = Vector2(10, 10)
+subdivide_width = 200
+subdivide_depth = 200
+orientation = 1
+
 [node name="Map" type="Node3D" unique_id=2123450618]
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1975757109]
+transform = Transform3D(0.9980595, -5.577092e-09, -0.062267993, 0.03547559, 0.82183594, 0.56861866, 0.051174074, -0.5697242, 0.82024115, -0.07358062, 1.5373667, 1.8624818)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=2081692613]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
+shadow_enabled = true
+
+[node name="Water" parent="." unique_id=119862006 instance=ExtResource("1_4xfga")]
+mesh = SubResource("QuadMesh_paxxb")
+
+[node name="RigidBody3D" type="RigidBody3D" parent="." unique_id=1154101023]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RigidBody3D" unique_id=1481434202]
+
+[node name="normal_ship" parent="RigidBody3D" unique_id=2131475430 instance=ExtResource("2_paxxb")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -2.354053)
