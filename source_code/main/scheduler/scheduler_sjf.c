@@ -1,100 +1,23 @@
 #include "scheduler.h"
+#include "sched_queue.h"
 #include <string.h>
 #include <stdio.h>
 
-#define MAX_Q 64
-
-/* ─── entrada de cola con timestamp ──────────────────── */
-typedef struct {
-    barco_t *barco;
-    int velocidad;
-} entrada_t;
-
-static entrada_t q_left [MAX_Q];
-static entrada_t q_right[MAX_Q];
-static int ql_head, ql_tail, ql_size;
-static int qr_head, qr_tail, qr_size;
-
-static int orden_global = 0;   // contador global de llegada
+/* ─── colas por dirección ─────────────────────────────── */
+static sched_queue_t q_left, q_right;
 
 /* ─── estado del canal ────────────────────────────────── */
 static int canal_dir;   // dirección activa (-1 = libre)
 static int en_canal;    // barcos físicamente dentro
 
-/*---------------------el que es mas rapido----------------*/
-
-
-static int _peek_velocidad(entrada_t *q, int head, int size)
-{
-    if (size == 0) return -1; // o infinito negativo
-
-    int max = -1;
-    for (int i = 0; i < size; i++) {
-        int idx = (head + i) % MAX_Q;
-        if (q[idx].velocidad > max)
-            max = q[idx].velocidad;
-    }
-    return max;
-}
-
-
-//deque del mas rapido
-static barco_t *_deq_max(entrada_t *q, int *head, int *size)
-{
-    if (*size == 0) return NULL;
-
-    int max_idx = *head;
-    int max_vel = q[*head].velocidad;
-
-    for (int i = 1; i < *size; i++) {
-        int idx = (*head + i) % MAX_Q;
-        if (q[idx].velocidad > max_vel) {
-            max_vel = q[idx].velocidad;
-            max_idx = idx;
-        }
-    }
-
-    barco_t *b = q[max_idx].barco;
-
-    // mover elementos (compactar)
-    while (max_idx != *head) {
-        int prev = (max_idx - 1 + MAX_Q) % MAX_Q;
-        q[max_idx] = q[prev];
-        max_idx = prev;
-    }
-
-    *head = (*head + 1) % MAX_Q;
-    (*size)--;
-
-    return b;
-}
-
-
-
-
-/* ─── helpers ─────────────────────────────────────────── */
-static void _enq(entrada_t *q, int *tail, int *size, barco_t *b)
-{
-    if (*size >= MAX_Q) return;
-
-    q[*tail].barco = b;
-    q[*tail].velocidad = b->velocidad;
-
-    *tail = (*tail + 1) % MAX_Q;
-    (*size)++;
-}
-
-
 /* ─── enqueue público ─────────────────────────────────── */
-static void sfj_enqueue(barco_t *b)
+static void sjf_enqueue(barco_t *b)
 {
     if (!b) return;
     b->state = READY;
 
-    if (b->direccion == 0)
-        _enq(q_left,  &ql_tail, &ql_size, b);
-    else
-        _enq(q_right, &qr_tail, &qr_size, b);
+    sched_queue_t *q = (b->direccion == 0) ? &q_left : &q_right;
+    sq_enq(q, b, b->velocidad);   // valor = velocidad (más rápido = menos tiempo en canal)
 
     printf("[SJF] Barco %d (%s) encolado (velocidad=%d, dir=%s)\n",
            b->id, b->nombre, b->velocidad,
@@ -102,59 +25,53 @@ static void sfj_enqueue(barco_t *b)
 }
 
 /* ─── init ───────────────────────────────────────────── */
-static void sfj_init(canal_t *canal, const config_t *cfg)
+static void sjf_init(canal_t *canal, const config_t *cfg)
 {
     (void)canal; (void)cfg;
 
-    ql_head = ql_tail = ql_size = 0;
-    qr_head = qr_tail = qr_size = 0;
-    orden_global = 0;
-    canal_dir    = -1;
-    en_canal     =  0;
+    sq_init(&q_left);
+    sq_init(&q_right);
+    canal_dir = -1;
+    en_canal  =  0;
 
     for (int i = 0; i < barcos_count(); i++)
-        sfj_enqueue(barcos_get(i));
+        sjf_enqueue(barcos_get(i));
 }
 
 /* ─── next ───────────────────────────────────────────── */
-static barco_t *sfj_next(void)
+static barco_t *sjf_next(void)
 {
-
+    // Solo un barco a la vez
     if (en_canal > 0)
         return NULL;
 
-
-    int vel_izq = _peek_velocidad(q_left,  ql_head, ql_size);
-    int vel_der = _peek_velocidad(q_right, qr_head, qr_size);
+    // Elegir lado con mayor velocidad máxima (menor tiempo en canal)
+    int v_izq = sq_peek_max(&q_left);
+    int v_der = sq_peek_max(&q_right);
 
     // Si ambas colas están vacías
-    if (vel_izq == -1 && vel_der == -1)
+    if (v_izq == -1 && v_der == -1)
         return NULL;
 
-    barco_t *b = NULL;
+    // Mayor velocidad gana; empate → izquierda
+    if (v_izq >= v_der)
+        canal_dir = 0;
+    else
+        canal_dir = 1;
 
+    printf("[SJF] Canal libre -> dirección elegida: %s (vel izq=%d, der=%d)\n",
+           canal_dir == 0 ? "IZQ" : "DER", v_izq, v_der);
 
-    if (vel_izq > vel_der) {
-        b = _deq_max(q_left, &ql_head, &ql_size);
-    }
-    else if (vel_der > vel_izq) {
-        b = _deq_max(q_right, &qr_head, &qr_size);
-    }
-    else {
-
-        b = _deq_max(q_left, &ql_head, &ql_size);
-    }
+    // Extraer el más rápido del lado elegido
+    barco_t *b = (canal_dir == 0)
+                 ? sq_deq_max(&q_left)
+                 : sq_deq_max(&q_right);
 
     if (b) {
-        b->state = RUNNING;
+        b->state  = RUNNING;
         en_canal++;
-
         canal_dir = b->direccion;
-
-        printf("[PRIORIDAD] Canal libre -> dirección elegida: %s (vel izq=%d, der=%d)\n",
-               canal_dir == 0 ? "IZQ" : "DER", vel_izq, vel_der);
-
-        printf("[PRIORIDAD] -> Barco %d (%s) autorizado (en_canal=%d)\n",
+        printf("[SJF] -> Barco %d (%s) autorizado (en_canal=%d)\n",
                b->id, b->nombre, en_canal);
     }
 
@@ -162,38 +79,30 @@ static barco_t *sfj_next(void)
 }
 
 /* ─── notify_done ─────────────────────────────────────── */
-static void sfj_notify_done(barco_t *b)
+static void sjf_notify_done(barco_t *b)
 {
     if (!b) return;
     b->state = DONE;
     if (en_canal > 0) en_canal--;
-    printf("[FCFS] Barco %d (%s) salió. en_canal=%d\n",
+    printf("[SJF] Barco %d (%s) salió. en_canal=%d\n",
            b->id, b->nombre, en_canal);
 }
 
+/* ─── get_queue (para LEDs) ───────────────────────────── */
 static int sjf_get_queue(int direccion, barco_t **out, int max)
 {
-    entrada_t *q    = (direccion == 0) ? q_left  : q_right;
-    int        head = (direccion == 0) ? ql_head : qr_head;
-    int        size = (direccion == 0) ? ql_size : qr_size;
-
-    int count = 0;
-    for (int i = 0; i < size && count < max; i++) {
-        int idx = (head + i) % MAX_Q;
-        out[count++] = q[idx].barco;
-    }
-    return count;
+    return sq_get_queue(direccion == 0 ? &q_left : &q_right, out, max);
 }
 
-/* ─── release — no-op en FCFS ────────────────────────── */
-static void fcfs_release(void) { }
+/* ─── release — no-op en SJF ─────────────────────────── */
+static void sjf_release(void) { }
 
 /* ─── export ──────────────────────────────────────────── */
 scheduler_t scheduler_sjf = {
-    .init        = sfj_init,
-    .next        = sfj_next,
-    .release     = fcfs_release,
-    .enqueue     = sfj_enqueue,
-    .notify_done = sfj_notify_done,
-	.get_queue   = sjf_get_queue,
+    .init        = sjf_init,
+    .next        = sjf_next,
+    .release     = sjf_release,
+    .enqueue     = sjf_enqueue,
+    .notify_done = sjf_notify_done,
+    .get_queue   = sjf_get_queue,
 };

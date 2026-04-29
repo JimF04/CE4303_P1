@@ -46,8 +46,9 @@ void app_main(void)
     printf("\n\n===== INICIO PROGRAMA =====\n\n");
 
     // Inicializar UART
-	uart_init_input();
-	uart_init_led();
+	uart_driver_install(UART_NUM_0, 1024, 0, 0, NULL, 0); // input
+	//uart_init_input(); //input
+	uart_init_led(); //leds
 	
     // Crear tarea de input
     xTaskCreate(input_task, "input", 4096, NULL, 5, NULL);
@@ -102,33 +103,3 @@ void app_main(void)
 
 	}
 }
-
-//    while (1) {
-//		send_led(0, 255, 255, 255);
-//		vTaskDelay(pdMS_TO_TICKS(1000));
-//		
-//		send_led(29, 255, 255, 255);
-//		vTaskDelay(pdMS_TO_TICKS(1000));
-//		
-//		send_led(15, 255, 255, 255);
-//		vTaskDelay(pdMS_TO_TICKS(1000));
-//		
-//		// Encender todos 
-//		send_all(255, 255, 255); // rojo
-//		vTaskDelay(pdMS_TO_TICKS(1000));
-//		
-//		// Encender todos
-//		send_all(255, 0, 0); // verde
-//		vTaskDelay(pdMS_TO_TICKS(1000));
-//		
-//		// Encender todos
-//		send_all(0, 255, 0); // azul
-//		vTaskDelay(pdMS_TO_TICKS(1000));
-//		
-//		// Encender todos
-//		send_all(0, 0, 255); // blanco
-//		vTaskDelay(pdMS_TO_TICKS(1000));
-//		
-//		// Apagar todo
-//		clear_all();
-//		vTaskDelay(pdMS_TO_TICKS(1000));

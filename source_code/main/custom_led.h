@@ -8,7 +8,7 @@
 #include "barcos/barco.h"
 #include "scheduler/scheduler.h"
 
-#define UART_LED_PORT   UART_NUM_0
+#define UART_LED_PORT   UART_NUM_1
 #define LED_TOTAL       30
 
 #define LED_IZQ_START    0
