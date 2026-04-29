@@ -76,7 +76,10 @@ static barco_t *_deq_max(entrada_t *q, int *head, int *size)
 static void _enq(entrada_t *q, int *tail, int *size, barco_t *b)
 {
     if (*size >= MAX_Q) return;
+
     q[*tail].barco = b;
+    q[*tail].velocidad = b->velocidad;
+
     *tail = (*tail + 1) % MAX_Q;
     (*size)++;
 }
@@ -93,8 +96,8 @@ static void sfj_enqueue(barco_t *b)
     else
         _enq(q_right, &qr_tail, &qr_size, b);
 
-    printf("[FCFS] Barco %d (%s) encolado (orden=%d, dir=%s)\n",
-           b->id, b->nombre, orden_global - 1,
+    printf("[SJF] Barco %d (%s) encolado (velocidad=%d, dir=%s)\n",
+           b->id, b->nombre, b->velocidad,
            b->direccion == 0 ? "IZQ" : "DER");
 }
 
@@ -116,13 +119,11 @@ static void sfj_init(canal_t *canal, const config_t *cfg)
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *sfj_next(void)
 {
-    // Si hay alguien en el canal, nadie más entra
+
     if (en_canal > 0)
         return NULL;
 
-    canal_dir = -1;
 
-    // Obtener la mayor velocidad de cada lado
     int vel_izq = _peek_velocidad(q_left,  ql_head, ql_size);
     int vel_der = _peek_velocidad(q_right, qr_head, qr_size);
 
@@ -130,23 +131,29 @@ static barco_t *sfj_next(void)
     if (vel_izq == -1 && vel_der == -1)
         return NULL;
 
-    // Elegir dirección según MAYOR velocidad
-    canal_dir = (vel_izq >= vel_der) ? 0 : 1;
-
-    printf("[PRIORIDAD] Canal libre -> dirección elegida: %s (vel izq=%d, der=%d)\n",
-           canal_dir == 0 ? "IZQ" : "DER", vel_izq, vel_der);
-
     barco_t *b = NULL;
 
-    // Sacar el barco MÁS RÁPIDO de la cola elegida
-    if (canal_dir == 0)
+
+    if (vel_izq > vel_der) {
         b = _deq_max(q_left, &ql_head, &ql_size);
-    else
+    }
+    else if (vel_der > vel_izq) {
         b = _deq_max(q_right, &qr_head, &qr_size);
+    }
+    else {
+
+        b = _deq_max(q_left, &ql_head, &ql_size);
+    }
 
     if (b) {
         b->state = RUNNING;
         en_canal++;
+
+        canal_dir = b->direccion;
+
+        printf("[PRIORIDAD] Canal libre -> dirección elegida: %s (vel izq=%d, der=%d)\n",
+               canal_dir == 0 ? "IZQ" : "DER", vel_izq, vel_der);
+
         printf("[PRIORIDAD] -> Barco %d (%s) autorizado (en_canal=%d)\n",
                b->id, b->nombre, en_canal);
     }

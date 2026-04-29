@@ -14,26 +14,26 @@ void app_main(void)
         printf("ERROR cargando config.ini\n");
         return;
     }
-	
+
 	// Inicializar canal
 	canal_t canal;
 	canal_init(&canal, &config);
-	
+
 	// Crear barcos por default
 	if (config.barcos.cfg_default == 1){
 		barcos_init(&config);
 	}
-	
+
 	// Get el algoritmo pedido por el usuario
 	scheduler_t sched = scheduler_get(&config);
-	
+
 	// Inicializar algoritmo
 	sched.init(&canal, &config);
-	
+
 	// Imprimir procesos
 	print_tasks_real();
-	
-	
+
+
 	static int tick = 0;
 
 	int max_ticks = 46;
@@ -72,10 +72,10 @@ void app_main(void)
 
 	    if (sched.release)
 	        sched.release();
-			
+
 
 	    vTaskDelay(pdMS_TO_TICKS(config.scheduler.quantum_ms));
 	}
-	
+
 
 }

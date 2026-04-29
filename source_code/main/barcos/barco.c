@@ -11,21 +11,25 @@ static int id_global = 0;
 // ========================
 //   TAREA DE CADA BARCO
 // ========================
-static void barco_task(void *arg)
+void barco_task(void *arg)
 {
     barco_t *b = (barco_t *)arg;
 
-    // BLOQUEO INICIAL
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
     while (1) {
-
-        // El barco NO se mueve solo
-		printf("[TASK] %s ejecuta (vel=%d, pos=%d)\n",
-		       b->nombre, b->velocidad, b->pos_canal);
-			   
-        // Espera siguiente quantum
+        // Espera turno del scheduler
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        b->state = RUNNING;
+
+        printf("[RUNNING] %s ejecuta\n", b->nombre);
+
+        // 🔧 Simular uso de CPU (NO mover barco)
+        vTaskDelay(pdMS_TO_TICKS(50));
+
+        // 🔧 Volver a READY (el canal maneja movimiento real)
+        if (b->state != DONE) {
+            b->state = READY;
+        }
     }
 }
 
