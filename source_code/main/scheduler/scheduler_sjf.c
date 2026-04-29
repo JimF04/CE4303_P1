@@ -171,6 +171,20 @@ static void sfj_notify_done(barco_t *b)
            b->id, b->nombre, en_canal);
 }
 
+static int sjf_get_queue(int direccion, barco_t **out, int max)
+{
+    entrada_t *q    = (direccion == 0) ? q_left  : q_right;
+    int        head = (direccion == 0) ? ql_head : qr_head;
+    int        size = (direccion == 0) ? ql_size : qr_size;
+
+    int count = 0;
+    for (int i = 0; i < size && count < max; i++) {
+        int idx = (head + i) % MAX_Q;
+        out[count++] = q[idx].barco;
+    }
+    return count;
+}
+
 /* ─── release — no-op en FCFS ────────────────────────── */
 static void fcfs_release(void) { }
 
@@ -181,4 +195,5 @@ scheduler_t scheduler_sjf = {
     .release     = fcfs_release,
     .enqueue     = sfj_enqueue,
     .notify_done = sfj_notify_done,
+	.get_queue   = sjf_get_queue,
 };

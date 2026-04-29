@@ -171,6 +171,20 @@ static void prio_notify_done(barco_t *b)
            b->id, b->nombre, en_canal);
 }
 
+static int prio_get_queue(int direccion, barco_t **out, int max)
+{
+    entrada_t *q    = (direccion == 0) ? q_left  : q_right;
+    int        head = (direccion == 0) ? ql_head : qr_head;
+    int        size = (direccion == 0) ? ql_size : qr_size;
+
+    int count = 0;
+    for (int i = 0; i < size && count < max; i++) {
+        int idx = (head + i) % MAX_Q;
+        out[count++] = q[idx].barco;
+    }
+    return count;
+}
+
 /* ─── release — no-op en FCFS ────────────────────────── */
 static void prio_release(void) { }
 
@@ -181,4 +195,5 @@ scheduler_t scheduler_prio = {
     .release     = prio_release,
     .enqueue     = prio_enqueue,
     .notify_done = prio_notify_done,
+	.get_queue   = prio_get_queue,
 };
