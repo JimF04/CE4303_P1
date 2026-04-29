@@ -166,7 +166,6 @@ void barcos_init(const config_t *cfg)
 // ========================
 //   ELIMINACION DE BARCOS
 // ========================
-
 void eliminar_barco(int index)
 {
     if (index < 0 || index >= barcos_total) return;
@@ -175,18 +174,15 @@ void eliminar_barco(int index)
 
     if (b->handle != NULL) {
         vTaskDelete(b->handle);
+        b->handle = NULL;  // 🔥 CLAVE
     }
 
-    // Compactar array
-    for (int i = index; i < barcos_total - 1; i++) {
-        barcos[i] = barcos[i + 1];
-    }
+    b->state = DONE;
+    b->pos_canal = -1;
+    b->id = -1;
 
-    barcos_total--;
-
-    printf("Barco eliminado\n");
+    printf("Barco eliminado (slot %d liberado)\n", index);
 }
-
 // ========================
 //   ACCESORES
 // ========================

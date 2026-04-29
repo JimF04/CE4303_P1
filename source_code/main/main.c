@@ -27,6 +27,8 @@ void app_main(void)
         barcos_init(&config);
     }
 
+
+
     // 🔥 IMPORTANTE: NO redeclarar sched
     sched = scheduler_get(&config);
 
@@ -47,50 +49,50 @@ void app_main(void)
     // Crear tarea de input
     xTaskCreate(input_task, "input", 4096, NULL, 5, NULL);
 
-    while (tick < max_ticks)
-    {
-        printf("\n========== TICK %d ==========\n", tick++);
+    while (1)
+{
+    printf("\n========== TICK %d ==========\n", tick++);
 
-        /* 1. Avanzar canal */
-        canal_avanzar(&canal);
+    /* 1. Avanzar canal */
+    canal_avanzar(&canal);
 
-        /* 2. Detectar barcos terminados y eliminarlos */
-        for (int i = 0; i < barcos_count(); i++) {
-            barco_t *b = barcos_get(i);
+    /* 2. Detectar barcos terminados y eliminarlos */
+    for (int i = 0; i < barcos_count(); i++) {
+        barco_t *b = barcos_get(i);
+		if (b == NULL) continue;
 
-            if (b != NULL && b->state == DONE && b->pos_canal == -1) {
-                sched.notify_done(b);
+        if (b != NULL && b->id != -1 && b->state == DONE && b->pos_canal == -1){
+            sched.notify_done(b);
 
-                printf("[MAIN] Eliminando barco %d (%s)\n", b->id, b->nombre);
+            printf("[MAIN] Eliminando barco %d (%s)\n", b->id, b->nombre);
 
-                eliminar_barco(i);
-
-                i--; // 🔥 CLAVE: evitar saltarse elementos
-            }
+            eliminar_barco(i);
+            i--;
         }
-
-        /* 3. Scheduler decide siguiente */
-        barco_t *b = sched.next();
-
-        /* 4. Insertar en canal */
-        if (b != NULL) {
-            printf("[SCHED] Barco %d (%s)\n", b->id, b->nombre);
-
-            if (b->pos_canal < 0 && canal_puede_entrar(&canal, b)) {
-                canal_insertar(&canal, b);
-            }
-
-            xTaskNotifyGive(b->handle);
-        }
-
-        /* 5. Imprimir estado actual */
-        canal_print(&canal);
-
-        /* 6. Liberar si aplica */
-        if (sched.release) {
-            sched.release();
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(config.scheduler.quantum_ms));
     }
+
+    /* 3. Scheduler decide siguiente */
+    barco_t *b = sched.next();
+
+    /* 4. Insertar en canal */
+    if (b != NULL) {
+        printf("[SCHED] Barco %d (%s)\n", b->id, b->nombre);
+
+        if (b->pos_canal < 0 && canal_puede_entrar(&canal, b)) {
+            canal_insertar(&canal, b);
+        }
+
+        xTaskNotifyGive(b->handle);
+    }
+
+    /* 5. Imprimir estado actual */
+    canal_print(&canal);
+
+    /* 6. Liberar si aplica */
+    if (sched.release) {
+        sched.release();
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(config.scheduler.quantum_ms));
+}
 }
