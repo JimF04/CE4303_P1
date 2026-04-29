@@ -23,6 +23,7 @@ typedef struct {
 typedef struct {
     int cantidad;
     int velocidad_base;
+    int prioridad_base;
     int cfg_default;
     char izquierda[10][16];
     char derecha[10][16];

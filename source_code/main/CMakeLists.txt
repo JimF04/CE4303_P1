@@ -11,6 +11,9 @@ set(SOURCES
     "scheduler/scheduler_factory.c"
     "scheduler/scheduler_fcfs.c"
     "scheduler/scheduler_sjf.c"
+    "scheduler/scheduler_prio.c"
+    "input/input_task.c"
+    
     )
 
 idf_component_register(

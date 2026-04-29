@@ -21,6 +21,7 @@ typedef struct {
     int direccion; // 0 = izquierda, 1 = derecha
     int pos_canal;
     int velocidad;
+    int prioridad;
 	char nombre[32];
     TaskHandle_t handle; // referencia al task del barco
 	
@@ -32,8 +33,10 @@ typedef struct {
 void barcos_init(const config_t *cfg);
 barco_t* barcos_get(int index);
 int barcos_count();
-void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b);
+bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b);
 void asignar_velocidad(const config_t *cfg, barco_t *b);
+
+void asignar_prioridad(const config_t *cfg, barco_t *b);
 void eliminar_barco(int index);
 
 

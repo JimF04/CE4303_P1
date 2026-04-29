@@ -3,6 +3,8 @@
 #include "barco.h"
 #include <math.h>
 
+#include <stdbool.h>
+
 
 static barco_t barcos[8];
 static int barcos_total = 0;
@@ -23,10 +25,10 @@ void barco_task(void *arg)
 
         printf("[RUNNING] %s ejecuta\n", b->nombre);
 
-        // 🔧 Simular uso de CPU (NO mover barco)
+        //Simular uso de CPU (NO mover barco)
         vTaskDelay(pdMS_TO_TICKS(50));
 
-        // 🔧 Volver a READY (el canal maneja movimiento real)
+        //Volver a READY (el canal maneja movimiento real)
         if (b->state != DONE) {
             b->state = READY;
         }
@@ -38,54 +40,49 @@ void barco_task(void *arg)
 // ========================
 
 // Metodo para crear un barco (proceso)
-void crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
+bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 {
-	int capacidad_logica = cfg->barcos.cantidad * 2;
+    int capacidad_logica = cfg->barcos.cantidad * 2;
 
-	if (capacidad_logica > BARCOS_MAX) {
-	    printf("ERROR: config.ini solicita %d barcos (máximo permitido = %d)\n",
-	           capacidad_logica, BARCOS_MAX);
-	    return;
-	}
+    if (capacidad_logica > BARCOS_MAX) {
+        printf("ERROR: config.ini solicita %d barcos (máximo permitido = %d)\n",
+               capacidad_logica, BARCOS_MAX);
+        return false;
+    }
 
-	if (barcos_total >= capacidad_logica) {
-	    printf("Límite del config alcanzado (%d barcos)\n", capacidad_logica);
-	    return;
-	}
+    if (barcos_total >= capacidad_logica) {
+        printf("Límite del config alcanzado (%d barcos)\n", capacidad_logica);
+        return false;
+    }
 
-	if (barcos_total >= BARCOS_MAX) {
-	    printf("Límite físico alcanzado (%d barcos)\n", BARCOS_MAX);
-	    return;
-	}
-	
+    if (barcos_total >= BARCOS_MAX) {
+        printf("Límite físico alcanzado (%d barcos)\n", BARCOS_MAX);
+        return false;
+    }
 
-	barco_t *b = &barcos[barcos_total];
-	b->id = id_global;
+    barco_t *b = &barcos[barcos_total];
+    b->id = id_global;
 
     strncpy(b->tipo, tipo_b, sizeof(b->tipo));
     b->tipo[15] = '\0';
 
     b->direccion = direccion_b;
     b->pos_canal = -1;
-	
-	b->state = READY;  
+    b->state = READY;
 
-    // Asignar velocidad correctamente
     asignar_velocidad(cfg, b);
 
-	// Crear el nombre del barco (tipo + dirección + id)
-	char dir = (direccion_b == 0) ? 'L' : 'R';
-	snprintf(b->nombre, sizeof(b->nombre), "%s_%c_%d", tipo_b, dir, b->id);
+    char dir = (direccion_b == 0) ? 'L' : 'R';
+    snprintf(b->nombre, sizeof(b->nombre), "%s_%c_%d", tipo_b, dir, b->id);
 
-	// Crear el task con nombre 
-	xTaskCreate(barco_task, b->nombre, 4096, b, 2, &b->handle);
+    xTaskCreate(barco_task, b->nombre, 4096, b, 2, &b->handle);
 
     id_global++;
     barcos_total++;
 
     printf("Barco %d creado (%s)\n", b->id, b->tipo);
 
- 
+    return true;  // ✅ éxito
 }
 
 // Metodo para asignar la velocidad a los barcos
@@ -106,6 +103,27 @@ void asignar_velocidad(const config_t *cfg, barco_t *b)
         b->velocidad = base; // fallback
     }
 }
+
+
+// Metodo para asignar la velocidad a los barcos
+void asignar_prioridad(const config_t *cfg, barco_t *b)
+{
+    int base = cfg->barcos.prioridad_base;
+
+    if (strcmp(b->tipo, "NOR") == 0) {
+        b->prioridad = base + 2;
+    } 
+    else if (strcmp(b->tipo, "PES") == 0) {
+        b->prioridad = base ;
+    } 
+    else if (strcmp(b->tipo, "PAT") == 0) {
+        b->prioridad = base + 1;
+    } 
+    else {
+        b->prioridad = base; // fallback
+    }
+}
+
 
 // Metodo para crear barcos por default (depende del config)
 void barcos_init(const config_t *cfg)
@@ -175,6 +193,9 @@ void eliminar_barco(int index)
 
 barco_t* barcos_get(int index)
 {
+    if (index < 0 || index >= barcos_total) {
+        return NULL;
+    }
     return &barcos[index];
 }
 
