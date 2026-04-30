@@ -28,7 +28,7 @@ void canal_init(canal_t *c, const config_t *cfg);
 
 void canal_insertar(canal_t *c, barco_t *b);
 
-void canal_avanzar(canal_t *c);
+void canal_mover_barco(canal_t *c, barco_t *b);
 
 int canal_puede_entrar(canal_t *c, barco_t *b);
 

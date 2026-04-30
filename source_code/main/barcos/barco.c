@@ -2,8 +2,13 @@
 #include <string.h>
 #include "barco.h"
 #include <math.h>
+#include <canal/canal.h>
 
 #include <stdbool.h>
+
+extern canal_t *canal_global;
+extern SemaphoreHandle_t canal_mutex;
+
 
 
 static barco_t barcos[8];
@@ -18,19 +23,24 @@ void barco_task(void *arg)
     barco_t *b = (barco_t *)arg;
 
     while (1) {
-        // Espera turno del scheduler
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        b->state = RUNNING;
+        //velocidad del barco controla ejecución
+        vTaskDelay(pdMS_TO_TICKS(200));
 
-        printf("[RUNNING] %s ejecuta\n", b->nombre);
+        xSemaphoreTake(canal_mutex, portMAX_DELAY);
 
-        //Simular uso de CPU (NO mover barco)
-        vTaskDelay(pdMS_TO_TICKS(50));
+        if (b->pos_canal >= 0) {
+            canal_mover_barco(canal_global, b);
+        } else {
+            if (canal_puede_entrar(canal_global, b)) {
+                canal_insertar(canal_global, b);
+            }
+        }
 
-        //Volver a READY (el canal maneja movimiento real)
-        if (b->state != DONE) {
-            b->state = READY;
+        xSemaphoreGive(canal_mutex);
+
+        if (b->state == DONE) {
+            vTaskDelete(NULL);
         }
     }
 }
@@ -82,7 +92,7 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 
     printf("Barco %d creado (%s)\n", b->id, b->tipo);
 
-    return true;  // ✅ éxito
+    return true; 
 }
 
 // Metodo para asignar la velocidad a los barcos
@@ -172,14 +182,13 @@ void eliminar_barco(int index)
 
     barco_t *b = &barcos[index];
 
-    if (b->handle != NULL) {
-        vTaskDelete(b->handle);
-        b->handle = NULL;  // 🔥 CLAVE
-    }
-
+    b->handle = NULL;
     b->state = DONE;
     b->pos_canal = -1;
+
+    //MARCAR COMO LIBRE
     b->id = -1;
+    strcpy(b->nombre, "FREE");
 
     printf("Barco eliminado (slot %d liberado)\n", index);
 }

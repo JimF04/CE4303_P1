@@ -21,60 +21,40 @@ void canal_init(canal_t *c, const config_t *cfg)
     c->policy->init(c->policy, c, cfg);
 }
 
-// Metodo para avanzar los barcos 
-void canal_avanzar(canal_t *c)
+
+
+void canal_mover_barco(canal_t *c, barco_t *b)
 {
-    barco_t *nuevo_estado[MAX_LARGO];
-    memset(nuevo_estado, 0, sizeof(nuevo_estado));
+    if (b->pos_canal < 0) return;
 
-    // Primero pasar los que van a la DERECHA (dir=0): procesar de derecha a izquierda
-    for (int i = c->largo - 1; i >= 0; i--) {
-        barco_t *b = c->slots[i];
-        if (!b || b->direccion != 0) continue;
+    int actual = b->pos_canal;
+    int nueva;
 
-        int nueva = i + b->velocidad;  // dir=0 -> +velocidad
+    if (b->direccion == 0)
+        nueva = actual + b->velocidad;
+    else
+        nueva = actual - b->velocidad;
 
-        if (nueva >= c->largo) {
-            b->state     = DONE;
-            b->pos_canal = -1;
-            c->ocupacion--;
-            printf("[CANAL] Barco %d (%s) salió del canal\n", b->id, b->nombre);
-            continue;
-        }
+    // SALE DEL CANAL
+    if (nueva >= c->largo || nueva < 0) {
+        c->slots[actual] = NULL;
+        b->pos_canal = -1;
+        b->state = DONE;
+        c->ocupacion--;
 
-        if (nuevo_estado[nueva] == NULL) {
-            nuevo_estado[nueva] = b;
-            b->pos_canal = nueva;
-        } else {
-            nuevo_estado[i] = b;  // bloqueado, se queda
-        }
+        printf("[BARCO] %d salió del canal\n", b->id);
+        return;
     }
 
-    // Luego los que van a la IZQUIERDA (dir=1): procesar de izquierda a derecha
-    for (int i = 0; i < c->largo; i++) {
-        barco_t *b = c->slots[i];
-        if (!b || b->direccion != 1) continue;
-
-        int nueva = i - b->velocidad;  // dir=1 -> -velocidad
-
-        if (nueva < 0) {
-            b->state     = DONE;
-            b->pos_canal = -1;
-            c->ocupacion--;
-            printf("[CANAL] Barco %d (%s) salió del canal\n", b->id, b->nombre);
-            continue;
-        }
-
-        if (nuevo_estado[nueva] == NULL) {
-            nuevo_estado[nueva] = b;
-            b->pos_canal = nueva;
-        } else {
-            nuevo_estado[i] = b;  // bloqueado, se queda
-        }
+    // COLISIÓN → se queda
+    if (c->slots[nueva] != NULL) {
+        return;
     }
 
-    memcpy(c->slots, nuevo_estado, sizeof(c->slots));
-    c->policy->tick(c->policy, c);
+    // MOVER
+    c->slots[actual] = NULL;
+    c->slots[nueva] = b;
+    b->pos_canal = nueva;
 }
 
 // Metodo para insertar nuevo barco al canal
