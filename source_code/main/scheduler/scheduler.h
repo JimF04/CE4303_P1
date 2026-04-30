@@ -20,7 +20,7 @@ typedef int (*sched_get_queue_fn)(int direccion, barco_t **out, int max);
    ========================= */
 typedef struct {
     void (*init)(canal_t *canal, const config_t *cfg);
-    sched_next_fn next;
+   sched_next_fn next;
 	sched_release_fn release;
 	sched_enqueue_fn enqueue;       
 	sched_notify_done_fn notify_done;

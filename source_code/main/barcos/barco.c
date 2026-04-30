@@ -6,8 +6,12 @@
 
 #include <stdbool.h>
 
+#include "scheduler/scheduler.h"
+
 extern canal_t *canal_global;
 extern SemaphoreHandle_t canal_mutex;
+extern scheduler_t sched;
+
 
 
 
@@ -24,27 +28,23 @@ void barco_task(void *arg)
 
     while (1) {
 
-        //velocidad del barco controla ejecución
-        vTaskDelay(pdMS_TO_TICKS(200));
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         xSemaphoreTake(canal_mutex, portMAX_DELAY);
 
+        // 🔥 solo mueve
         if (b->pos_canal >= 0) {
             canal_mover_barco(canal_global, b);
-        } else {
-            if (canal_puede_entrar(canal_global, b)) {
-                canal_insertar(canal_global, b);
-            }
         }
 
         xSemaphoreGive(canal_mutex);
 
         if (b->state == DONE) {
+            sched.notify_done(b);
             vTaskDelete(NULL);
         }
     }
 }
-
 // ========================
 //   CREACIÓN DE BARCOS
 // ========================
@@ -53,6 +53,8 @@ void barco_task(void *arg)
 bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 {
     int capacidad_logica = cfg->barcos.cantidad * 2;
+
+    
 
     if (capacidad_logica > BARCOS_MAX) {
         printf("ERROR: config.ini solicita %d barcos (máximo permitido = %d)\n",
@@ -73,6 +75,8 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
     barco_t *b = &barcos[barcos_total];
     b->id = id_global;
 
+    b->en_cola = 0;
+
     strncpy(b->tipo, tipo_b, sizeof(b->tipo));
     b->tipo[15] = '\0';
 
@@ -81,11 +85,12 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
     b->state = READY;
 
     asignar_velocidad(cfg, b);
+    asignar_prioridad(cfg, b);
 
     char dir = (direccion_b == 0) ? 'L' : 'R';
     snprintf(b->nombre, sizeof(b->nombre), "%s_%c_%d", tipo_b, dir, b->id);
 
-    xTaskCreate(barco_task, b->nombre, 4096, b, 2, &b->handle);
+    xTaskCreate(barco_task,b->nombre,4096,b,5,&b->handle);
 
     id_global++;
     barcos_total++;
@@ -189,6 +194,7 @@ void eliminar_barco(int index)
     //MARCAR COMO LIBRE
     b->id = -1;
     strcpy(b->nombre, "FREE");
+    
 
     printf("Barco eliminado (slot %d liberado)\n", index);
 }

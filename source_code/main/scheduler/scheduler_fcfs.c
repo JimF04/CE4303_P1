@@ -28,17 +28,30 @@ static void fcfs_enqueue(barco_t *b)
 /* ─── init ───────────────────────────────────────────── */
 static void fcfs_init(canal_t *canal, const config_t *cfg)
 {
-    (void)canal; (void)cfg;
+    (void)canal;
+    (void)cfg;
 
     sq_init(&q_left);
     sq_init(&q_right);
+
     orden_global = 0;
     canal_dir    = -1;
-    en_canal     =  0;
+    en_canal     = 0;
 
-    for (int i = 0; i < barcos_count(); i++)
-        fcfs_enqueue(barcos_get(i));
+    // encolar TODOS los barcos
+    for (int i = 0; i < barcos_count(); i++) {
+
+        barco_t *b = barcos_get(i);
+
+        if (!b) continue;
+
+        b->en_cola = 0;
+
+        fcfs_enqueue(b);
+    }
 }
+
+
 
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *fcfs_next(void)
@@ -71,12 +84,22 @@ static barco_t *fcfs_next(void)
     return b;
 }
 
+
+
+
 /* ─── notify_done ─────────────────────────────────────── */
 static void fcfs_notify_done(barco_t *b)
 {
     if (!b) return;
+
     b->state = DONE;
-    if (en_canal > 0) en_canal--;
+
+    if (en_canal > 0)
+        en_canal--;
+
+    if (en_canal == 0)
+        canal_dir = -1;
+
     printf("[FCFS] Barco %d (%s) salió. en_canal=%d\n",
            b->id, b->nombre, en_canal);
 }

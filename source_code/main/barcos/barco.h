@@ -26,6 +26,7 @@ typedef struct {
     TaskHandle_t handle; // referencia al task del barco
 	
 	barco_state_t state;
+    int en_cola;
 	
 } barco_t;
 

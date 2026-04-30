@@ -3,12 +3,17 @@
 #include <string.h>
 #include <stdio.h>
 
+
+
 /* ─── colas por dirección ─────────────────────────────── */
 static sched_queue_t q_left, q_right;
 
 /* ─── estado del canal ────────────────────────────────── */
 static int canal_dir;   // dirección activa (-1 = libre)
 static int en_canal;    // barcos físicamente dentro
+
+static int orden_global;   // contador global de llegada
+
 
 /* ─── enqueue público ─────────────────────────────────── */
 static void sjf_enqueue(barco_t *b)
@@ -17,25 +22,37 @@ static void sjf_enqueue(barco_t *b)
     b->state = READY;
 
     sched_queue_t *q = (b->direccion == 0) ? &q_left : &q_right;
-    sq_enq(q, b, b->velocidad);   // valor = velocidad (más rápido = menos tiempo en canal)
+    sq_enq(q, b, b->velocidad);   // valor = orden de llegada
 
-    printf("[SJF] Barco %d (%s) encolado (velocidad=%d, dir=%s)\n",
-           b->id, b->nombre, b->velocidad,
+    printf("[SJF] Barco %d (%s) encolado (orden=%d, dir=%s)\n",
+           b->id, b->nombre, orden_global - 1,
            b->direccion == 0 ? "IZQ" : "DER");
 }
 
 /* ─── init ───────────────────────────────────────────── */
 static void sjf_init(canal_t *canal, const config_t *cfg)
 {
-    (void)canal; (void)cfg;
+    (void)canal;
+    (void)cfg;
 
     sq_init(&q_left);
     sq_init(&q_right);
-    canal_dir = -1;
-    en_canal  =  0;
 
-    for (int i = 0; i < barcos_count(); i++)
-        sjf_enqueue(barcos_get(i));
+    orden_global = 0;
+    canal_dir    = -1;
+    en_canal     = 0;
+
+    // encolar TODOS los barcos
+    for (int i = 0; i < barcos_count(); i++) {
+
+        barco_t *b = barcos_get(i);
+
+        if (!b) continue;
+
+        b->en_cola = 0;
+
+        sjf_enqueue(b);
+    }
 }
 
 /* ─── next ───────────────────────────────────────────── */
@@ -82,9 +99,16 @@ static barco_t *sjf_next(void)
 static void sjf_notify_done(barco_t *b)
 {
     if (!b) return;
+
     b->state = DONE;
-    if (en_canal > 0) en_canal--;
-    printf("[SJF] Barco %d (%s) salió. en_canal=%d\n",
+
+    if (en_canal > 0)
+        en_canal--;
+
+    if (en_canal == 0)
+        canal_dir = -1;
+
+    printf("[FCFS] Barco %d (%s) salió. en_canal=%d\n",
            b->id, b->nombre, en_canal);
 }
 
