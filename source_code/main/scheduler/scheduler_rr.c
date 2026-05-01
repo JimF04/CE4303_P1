@@ -61,7 +61,7 @@ static void rr_init(canal_t *canal, const config_t *cfg)
     }
 }
 
-
+//lo mismo que el srnt
 void preempt_rr(barco_t *b)
 {
     if (!b) return;
@@ -87,16 +87,16 @@ void preempt_rr(barco_t *b)
 
 static barco_t *rr_next(void)
 {
-    // 🔥 CASO 0: no hay nada
+    //no hay barco esperando, no hay siguiente
     if (q_left.size == 0 && q_right.size == 0 && actual == NULL) {
         return NULL;
     }
 
-    // 🔥 CASO 1: no hay actual → escoger por FCFS
+    //no hay barco en el canal
     if (actual == NULL) {
 
-        int orden_izq = sq_peek_front(&q_left);
-        int orden_der = sq_peek_front(&q_right);
+        int orden_izq = sq_peek_front(&q_left); //sigue la derecha?
+        int orden_der = sq_peek_front(&q_right); //sigue la izquierda
 
         if (orden_izq == 0x7FFFFFFF && orden_der == 0x7FFFFFFF)
             return NULL;
@@ -111,10 +111,10 @@ static barco_t *rr_next(void)
             : sq_deq(&q_right);
 
         if (b) {
-            b->state = RUNNING;
-            actual = b;
-            en_canal = 1;
-            rr_ticks = 0;
+            b->state = RUNNING; //lo ponemos a correr
+            actual = b; //actual es el que va a entrar
+            en_canal = 1; //hay uno en canal
+            rr_ticks = 0; //para contar el quatum
 
             printf("[RR-FCFS] -> Barco %d (%s) entra\n",
                    b->id, b->nombre);
@@ -123,24 +123,24 @@ static barco_t *rr_next(void)
         return b;
     }
 
-    // 🔥 CASO 2: sigue dentro del quantum
-    rr_ticks++;
+    //si ya esta adentro
+    rr_ticks++; //se suma al quatum
 
-    if (rr_ticks < RR_QUANTUM) {
+    if (rr_ticks < RR_QUANTUM) { //se le acabo el quatum?
         return NULL;
     }
 
-    // 🔥 CASO 3: preemption (ROTACIÓN)
-    rr_ticks = 0;
+    // se le acabo el quatum entonces rotamos de barco
+    rr_ticks = 0; //se vuelve 0
 
-    barco_t *viejo = actual;
+    barco_t *viejo = actual; //el actual se vuelve el pasado
 
     printf("[RR-FCFS] Quantum terminado para barco %d\n", viejo->id);
 
-    // 🔁 lo rotas al final
-    preempt_rr(viejo);
+    //lo rotas al final
+    preempt_rr(viejo); //quitamos al viejo del canal
 
-    // 🔥 elegir siguiente por FCFS otra vez
+    //   elegir siguiente por FCFS otra vez
     int orden_izq = sq_peek_front(&q_left);
     int orden_der = sq_peek_front(&q_right);
 
@@ -163,7 +163,7 @@ static barco_t *rr_next(void)
         printf("[RR-FCFS] -> Barco %d entra (rotación)\n", nuevo->id);
     }
 
-    return nuevo;
+    return nuevo; //se retorna el nuevo barco que va a correr
 }
 
 /* ─── notify_done ─────────────────────────────────────── */

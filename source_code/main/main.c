@@ -85,19 +85,19 @@ sched.init(&canal, &config);
     // =========================
     for (int i = 0; i < barcos_count(); i++) {
 
-        barco_t *b = barcos_get(i);
+        barco_t *b = barcos_get(i); //se toma un barco
 
-        if (!b) continue;
+        if (!b) continue; //es valido?
 
-        if (b->id != -1 &&
-            b->state == DONE &&
+        if (b->id != -1 && //esta en el canal
+            b->state == DONE && //el estado es done?
             b->pos_canal == -1) {
 
             printf("[MAIN] Eliminando barco %d (%s)\n",
                    b->id, b->nombre);
 
-            eliminar_barco(i);
-            i--;
+            eliminar_barco(i); //se elimina
+            i--; //se baja la cantidad de barcos
         }
     }
 
@@ -106,16 +106,16 @@ sched.init(&canal, &config);
     // =========================
 
 
-    barco_t *nuevo = sched.next();
+    barco_t *nuevo = sched.next(); //el barco que sigue segun el scheduler
 
     if (nuevo != NULL) {
-            xSemaphoreTake(canal_mutex, portMAX_DELAY);
+            xSemaphoreTake(canal_mutex, portMAX_DELAY); //se proteje el canal
 
-            canal_insertar(&canal, nuevo);
+            canal_insertar(&canal, nuevo); //se inserta el nuevo barco
 
-            xSemaphoreGive(canal_mutex);
+            xSemaphoreGive(canal_mutex); //se libera
 
-            xTaskNotifyGive(nuevo->handle);
+            xTaskNotifyGive(nuevo->handle); //se despierta a los barcos, a ver si fueron los elegidos 
         }
 
     // =========================
@@ -123,13 +123,13 @@ sched.init(&canal, &config);
     // =========================
     for (int i = 0; i < barcos_count(); i++) {
 
-        barco_t *b = barcos_get(i);
+        barco_t *b = barcos_get(i); //agarrar un barco
 
-        if (!b) continue;
+        if (!b) continue; //que sea valido
 
         if (b->pos_canal >= 0) {
 
-            xTaskNotifyGive(b->handle);
+            xTaskNotifyGive(b->handle); //se notifica (ahorita no se usa)
         }
     }
 
@@ -138,7 +138,7 @@ sched.init(&canal, &config);
     // =========================
     canal_print(&canal);
 
-    vTaskDelay(pdMS_TO_TICKS(500));
+    vTaskDelay(pdMS_TO_TICKS(500)); 
     }
 }
 

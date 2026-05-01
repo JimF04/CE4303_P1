@@ -27,7 +27,7 @@ static void strn_enqueue(barco_t *b)
     b->state = READY;
 
     sched_queue_t *q = (b->direccion == 0) ? &q_left : &q_right;
-    sq_enq(q, b, b->velocidad);   // valor = orden de llegada
+    sq_enq(q, b, b->velocidad);   // valor = valocidad
 
     printf("[strn] Barco %d (%s) encolado (orden=%d, dir=%s)\n",
            b->id, b->nombre, orden_global - 1,
@@ -60,22 +60,23 @@ static void strn_init(canal_t *canal, const config_t *cfg)
     }
 }
 
+//prepara al barco para quitarlo del canal
 
-void preempt(barco_t *b)
+void preempt(barco_t *b) 
 {
-    if (!b) return;
+    if (!b) return; //que sea un barco valido
 
-    xSemaphoreTake(canal_mutex, portMAX_DELAY);
+    xSemaphoreTake(canal_mutex, portMAX_DELAY); //protege el canal
 
-    canal_remover_barco(canal_global, b);
+    canal_remover_barco(canal_global, b); //llama a quitar el barco
 
-    xSemaphoreGive(canal_mutex);
+    xSemaphoreGive(canal_mutex); //lo libera
 
-    b->state = READY;
+    b->state = READY; //lo devuelve a ready
     actual = NULL;
     en_canal = 0;
 
-    // 🔥 NO usar sched global
+    // lo vuelve a meter a la cola 
     strn_enqueue(b);
 
     printf("[SCHED] Barco %d preempted\n", b->id);
@@ -105,7 +106,7 @@ static barco_t *strn_next(void)
         mejor_v   = v_der;
     }
 
-    // 🔥 CASO 1: no hay nadie corriendo
+    // no hay nadie corriendo
     if (actual == NULL) {
 
         mejor = (mejor_dir == 0)
@@ -124,7 +125,7 @@ static barco_t *strn_next(void)
         return mejor;
     }
 
-    // 🔥 CASO 2: hay alguien corriendo → evaluar preemption
+    //hay alguien corriendo → evaluar preemption
     if (mejor_v > actual->velocidad) {
 
         printf("[SRTN] Preempt: %d -> %d\n", actual->id, mejor_v);
@@ -148,7 +149,7 @@ static barco_t *strn_next(void)
         return mejor;
     }
 
-    // 🔥 CASO 3: nadie mejor → sigue el actual
+    //nadie mejor → sigue el actual
     return NULL;
 }
 
