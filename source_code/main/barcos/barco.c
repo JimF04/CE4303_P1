@@ -15,9 +15,9 @@ extern scheduler_t sched;
 
 
 
-static barco_t barcos[8];
-static int barcos_total = 0;
-static int id_global = 0;
+static barco_t barcos[8]; //lista de barcos
+static int barcos_total = 0; //cuantos barcos existen
+static int id_global = 0; //id para los barcos
 
 // ========================
 //   TAREA DE CADA BARCO
@@ -28,20 +28,20 @@ void barco_task(void *arg)
 
     while (1) {
 
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY); //notificacion para que se despierte
 
-        xSemaphoreTake(canal_mutex, portMAX_DELAY);
+        xSemaphoreTake(canal_mutex, portMAX_DELAY); //para que no se despiche todo, compartiendo el canal
 
-        // 🔥 solo mueve
+        //solo mueve
         if (b->pos_canal >= 0) {
-            canal_mover_barco(canal_global, b);
+            canal_mover_barco(canal_global, b); //usamos el recurso para moverse
         }
 
-        xSemaphoreGive(canal_mutex);
+        xSemaphoreGive(canal_mutex); //soltamos el canal para que lo use otro barco
 
-        if (b->state == DONE) {
-            sched.notify_done(b);
-            vTaskDelete(NULL);
+        if (b->state == DONE) { //si el barco termina:
+            sched.notify_done(b); //se notifica que ya termino 
+            vTaskDelete(NULL); //se elimina ese task
         }
     }
 }
@@ -52,9 +52,8 @@ void barco_task(void *arg)
 // Metodo para crear un barco (proceso)
 bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 {
-    int capacidad_logica = cfg->barcos.cantidad * 2;
+    int capacidad_logica = cfg->barcos.cantidad * 2; 
 
-    
 
     if (capacidad_logica > BARCOS_MAX) {
         printf("ERROR: config.ini solicita %d barcos (máximo permitido = %d)\n",
@@ -72,26 +71,29 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
         return false;
     }
 
-    barco_t *b = &barcos[barcos_total];
-    b->id = id_global;
+    barco_t *b = &barcos[barcos_total]; //se guardan los barcos que hay
+    
 
-    b->en_cola = 0;
+    // aqui se le dan las propiedades al barco
 
-    strncpy(b->tipo, tipo_b, sizeof(b->tipo));
+    b->id = id_global; //se le da el id
+
+    b->en_cola = 0; //se pone que esta en cola
+
+    strncpy(b->tipo, tipo_b, sizeof(b->tipo)); //[PES,NOR,PAT] tipos de barco
     b->tipo[15] = '\0';
+    b->direccion = direccion_b; //izquierda o derecha
+    b->pos_canal = -1; //-1 = no tiene posicion en el canal
+    b->posicion_guardada = -1;  // -1 =  aun no tiene una posicion guardada
+    b->state = READY;  //se pone que esta ready para ejecutarse
 
-    b->direccion = direccion_b;
-    b->pos_canal = -1;
-    b->posicion_guardada = -1;  
-    b->state = READY;
-
-    asignar_velocidad(cfg, b);
-    asignar_prioridad(cfg, b);
+    asignar_velocidad(cfg, b); //se le asigna la velocidad segun el tipo de barco
+    asignar_prioridad(cfg, b); //se le asigna la prioridad segun el tipo de barco
 
     char dir = (direccion_b == 0) ? 'L' : 'R';
     snprintf(b->nombre, sizeof(b->nombre), "%s_%c_%d", tipo_b, dir, b->id);
 
-    xTaskCreate(barco_task,b->nombre,4096,b,5,&b->handle);
+    xTaskCreate(barco_task,b->nombre,4096,b,5,&b->handle); //se crea el task, este se empieza a ejecutar automaticamente
 
     id_global++;
     barcos_total++;
@@ -184,13 +186,13 @@ void barcos_init(const config_t *cfg)
 // ========================
 void eliminar_barco(int index)
 {
-    if (index < 0 || index >= barcos_total) return;
+    if (index < 0 || index >= barcos_total) return; //se elimina con el indice en la lista
 
-    barco_t *b = &barcos[index];
+    barco_t *b = &barcos[index]; //se toma el barco
 
-    b->handle = NULL;
-    b->state = DONE;
-    b->pos_canal = -1;
+    b->handle = NULL; 
+    b->state = DONE; //se pone como listo
+    b->pos_canal = -1; //se quita del canal
 
     //MARCAR COMO LIBRE
     b->id = -1;

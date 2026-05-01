@@ -56,11 +56,11 @@ static void fcfs_init(canal_t *canal, const config_t *cfg)
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *fcfs_next(void)
 {
-    // FCFS puro: si hay alguien dentro, no entra nadie más
+    //si hay alguien dentro, no entra nadie más
     if (en_canal > 0)
         return NULL;
 
-    // Canal vacío: elegir dirección por orden de llegada (menor orden gana)
+    
     int orden_izq = sq_peek_front(&q_left);
     int orden_der = sq_peek_front(&q_right);
 
@@ -90,7 +90,7 @@ static barco_t *fcfs_next(void)
 /* ─── notify_done ─────────────────────────────────────── */
 static void fcfs_notify_done(barco_t *b)
 {
-    if (!b) return;
+    if (!b) return; //que el barco sea valido
 
     b->state = DONE;
 
