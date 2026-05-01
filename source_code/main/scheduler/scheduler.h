@@ -25,7 +25,7 @@ typedef struct {
 	sched_enqueue_fn enqueue;       
 	sched_notify_done_fn notify_done;
 	sched_get_queue_fn get_queue;
-} scheduler_t;
+}  scheduler_t;
 
 /* =========================
    FACTORY

@@ -12,7 +12,10 @@ set(SOURCES
     "scheduler/scheduler_fcfs.c"
     "scheduler/scheduler_sjf.c"
     "scheduler/scheduler_prio.c"
+    "scheduler/scheduler_strn.c"
+    "scheduler/scheduler_rr.c"
     "input/input_task.c"
+
     
     )
 

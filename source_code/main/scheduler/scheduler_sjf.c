@@ -55,6 +55,9 @@ static void sjf_init(canal_t *canal, const config_t *cfg)
     }
 }
 
+
+
+
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *sjf_next(void)
 {

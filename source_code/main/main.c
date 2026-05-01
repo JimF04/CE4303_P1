@@ -68,6 +68,14 @@ sched.init(&canal, &config);
     // =========================
     // 5. LOOP PRINCIPAL
     // =========================
+
+
+
+
+    // Crear tarea de input
+    xTaskCreate(input_task, "input", 4096, NULL, 5, NULL);
+
+
     while (1) {
 
     printf("\n========== TICK ==========\n");

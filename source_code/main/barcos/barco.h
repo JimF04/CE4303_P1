@@ -12,6 +12,7 @@ typedef enum {
     READY,
     RUNNING,
     BLOCKED,
+    PAUSED,
     DONE
 } barco_state_t;
 
@@ -27,6 +28,7 @@ typedef struct {
 	
 	barco_state_t state;
     int en_cola;
+    int posicion_guardada;
 	
 } barco_t;
 

@@ -82,6 +82,7 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 
     b->direccion = direccion_b;
     b->pos_canal = -1;
+    b->posicion_guardada = -1;  
     b->state = READY;
 
     asignar_velocidad(cfg, b);

@@ -30,8 +30,10 @@ void canal_insertar(canal_t *c, barco_t *b);
 
 void canal_mover_barco(canal_t *c, barco_t *b);
 
-int canal_puede_entrar(canal_t *c, barco_t *b);
+int canal_puede_entrar(canal_t *c, barco_t *b, int entrada);
 
 void canal_print(canal_t *c);
+
+void canal_remover_barco(canal_t *c, barco_t *b);
 
 #endif /* MAIN_CANAL_CANAL_H_ */
