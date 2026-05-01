@@ -32,15 +32,23 @@ static int tico_allow_left(flow_policy_t *self, canal_t *c)
 {
     (void)self;
     int dir = tico_dir_activa(c);
-    // Puede entrar si el canal está vacío o ya van hacia la izquierda (dir=0)
-    return (dir == -1 || dir == 0);
+	// Puede entrar si el canal está vacío o ya van hacia la izquierda (dir=0)
+    if (dir == -1 || dir == 0) {
+        c->direccion_actual = 0;  //actualiza el canal
+        return 1;
+    }
+    return 0;
 }
 
 static int tico_allow_right(flow_policy_t *self, canal_t *c)
 {
     (void)self;
     int dir = tico_dir_activa(c);
-    return (dir == -1 || dir == 1);
+    if (dir == -1 || dir == 1) {
+        c->direccion_actual = 1;  //actualiza el canal
+        return 1;
+    }
+    return 0;
 }
 
 static void tico_tick(flow_policy_t *self, canal_t *c)

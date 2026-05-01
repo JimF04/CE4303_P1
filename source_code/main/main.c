@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "config.h"
-#include "debug.h"
+//#include "debug.h"
 #include "barcos/barco.h"
 #include "canal/canal.h"
 #include "scheduler/scheduler.h"
@@ -22,49 +22,54 @@ scheduler_t sched;
 void app_main(void)
 {
     // =========================
-// 1. CONFIG
-// =========================
-if (config_load(&config) < 0) {
-    printf("ERROR cargando config.ini\n");
-    return;
-}
-
-// =========================
-// 2. CANAL
-// =========================
-static canal_t canal;
-
-canal_init(&canal, &config);
-
-canal_global = &canal;
-
-// =========================
-// 3. MUTEX
-// =========================
-canal_mutex = xSemaphoreCreateMutex();
-
-if (canal_mutex == NULL) {
-    printf("ERROR creando mutex\n");
-    return;
-}
-
-// =========================
-// 4. CREAR BARCOS (TASKS)
-// =========================
-if (config.barcos.cfg_default == 1) {
-    barcos_init(&config);
-}
-
-// =========================
-// 5. SCHEDULER
-// =========================
-sched = scheduler_get(&config);
-
-sched.init(&canal, &config);
+	// 1. CONFIG
+	// =========================
+	if (config_load(&config) < 0) {
+	    printf("ERROR cargando config.ini\n");
+	    return;
+	}
+	
+	// =========================
+	// 2. CANAL
+	// =========================
+	static canal_t canal;
+	
+	canal_init(&canal, &config);
+	
+	canal_global = &canal;
+	
+	// =========================
+	// 3. MUTEX
+	// =========================
+	canal_mutex = xSemaphoreCreateMutex();
+	
+	if (canal_mutex == NULL) {
+	    printf("ERROR creando mutex\n");
+	    return;
+	}
+	
+	// =========================
+	// 4. CREAR BARCOS (TASKS) POR DEFAULT 
+	// =========================
+	if (config.barcos.cfg_default == 1) {
+	    barcos_init(&config);
+	}
+	
+	// =========================
+	// 5. SCHEDULER
+	// =========================
+	sched = scheduler_get(&config);
+	
+	sched.init(&canal, &config);
 
 
     printf("\n===== INICIO (MODELO DISTRIBUIDO) =====\n");
 
+	
+	
+	uart_init_led();
+	
+	
     // =========================
     // 5. LOOP PRINCIPAL
     // =========================
@@ -74,8 +79,7 @@ sched.init(&canal, &config);
 
     // Crear tarea de input
     xTaskCreate(input_task, "input", 4096, NULL, 5, NULL);
-
-
+	
     while (1) {
 
     printf("\n========== TICK ==========\n");
@@ -136,6 +140,7 @@ sched.init(&canal, &config);
     // =========================
     // DEBUG
     // =========================
+	led_render_canal(&canal, &sched);
     canal_print(&canal);
 
     vTaskDelay(pdMS_TO_TICKS(500)); 

@@ -13,10 +13,10 @@
 
 #define LED_IZQ_START    0
 #define LED_IZQ_END      3
-#define LED_CANAL_START  5
-#define LED_CANAL_END   24
-#define LED_DER_START   26
-#define LED_DER_END     29
+#define LED_CANAL_START  4
+#define LED_CANAL_END   23
+#define LED_DER_START   24
+#define LED_DER_END     27
 #define LED_CANAL_COUNT (LED_CANAL_END - LED_CANAL_START + 1)  // 20 LEDs
 
 // ── UART init ─────────────────────────────────────────────
@@ -63,7 +63,7 @@ static void color_por_tipo(const char *tipo, int *r, int *g, int *b)
     else                               { *r = 255; *g = 255; *b = 255; }
 }
 
-// ── Mapeo pos_canal → LED ─────────────────────────────────
+// ── Mapeo pos_canal -> LED ─────────────────────────────────
 static int canal_pos_to_led(int pos_canal, int largo)
 {
     if (largo <= 1) return LED_CANAL_START;
@@ -100,7 +100,7 @@ void led_render_canal(const canal_t *c, const scheduler_t *sched)
     for (int i = 0; i < n_izq && (LED_IZQ_END - i) >= LED_IZQ_START; i++) {
         barco_t *b = cola_izq[i];
         if (!b) continue;
-        int led = LED_IZQ_END - i;   // primero → LED 3, segundo → LED 2 ...
+        int led = LED_IZQ_END - i;   // primero -> LED 3, segundo -> LED 2 ...
         int r, g, bl;
         color_por_tipo(b->tipo, &r, &g, &bl);
         R[led] = r  / 3;
@@ -108,20 +108,29 @@ void led_render_canal(const canal_t *c, const scheduler_t *sched)
         B[led] = bl / 3;
     }
 
-    // ── Cola derecha: primero = más cercano al canal (LED 25) ──
+    // ── Cola derecha: primero = más cercano al canal (LED 24) ──
     barco_t *cola_der[BARCOS_MAX];
     int n_der = sched->get_queue(1, cola_der, BARCOS_MAX);
 
     for (int i = 0; i < n_der && (LED_DER_START + i) <= LED_DER_END; i++) {
         barco_t *b = cola_der[i];
         if (!b) continue;
-        int led = LED_DER_START + i;  // primero → LED 25, segundo → LED 26 ...
+        int led = LED_DER_START + i;  // primero -> LED 24, segundo -> LED 25 ...
         int r, g, bl;
         color_por_tipo(b->tipo, &r, &g, &bl);
         R[led] = r  / 3;
         G[led] = g  / 3;
         B[led] = bl / 3;
     }
+	
+	// ── LED 29: indicador de dirección del canal ──────────────
+	if (c->direccion_actual == 0) {
+	    // Izquierda -> amarillo
+	    R[29] = 255; G[29] = 165; B[29] = 0;
+	} else {
+	    // Derecha -> cian
+	    R[29] = 0; G[29] = 255; B[29] = 255;
+	}
 
     // ── Construir y enviar FRAME ──────────────────────────
     char frame[512];

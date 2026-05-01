@@ -8,6 +8,8 @@
 
 #include "scheduler/scheduler.h"
 
+#include "../debug.h"
+
 extern canal_t *canal_global;
 extern SemaphoreHandle_t canal_mutex;
 extern scheduler_t sched;
@@ -36,6 +38,8 @@ void barco_task(void *arg)
         if (b->pos_canal >= 0) {
             canal_mover_barco(canal_global, b); //usamos el recurso para moverse
         }
+		
+		//print_tasks_real();
 
         xSemaphoreGive(canal_mutex); //soltamos el canal para que lo use otro barco
 
