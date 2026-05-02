@@ -11,7 +11,7 @@ static int canal_dir;   // dirección activa (-1 = libre)
 static int en_canal;    // barcos físicamente dentro
 static int orden_global;   // contador global de llegada
 
-
+extern canal_t *canal_global;
 
 /* ─── enqueue público ─────────────────────────────────── */
 static void prio_enqueue(barco_t *b)
@@ -56,38 +56,37 @@ static void prio_init(canal_t *canal, const config_t *cfg)
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *prio_next(void)
 {
-    // Solo un barco a la vez
-    if (en_canal > 0)
+	// Un solo barco a la vez
+	if (canal_global->ocupacion > 0)
+	    return NULL;
+
+    int dir_canal = canal_global->direccion_actual;
+
+    int p_izq = sq_peek_max(&q_left);
+    int p_der = sq_peek_max(&q_right);
+
+    if (p_izq == -1 && p_der == -1)
         return NULL;
 
-    // Elegir lado con mayor velocidad máxima (menor tiempo en canal)
-    int v_izq = sq_peek_max(&q_left);
-    int v_der = sq_peek_max(&q_right);
+    barco_t *b = NULL;
 
-    // Si ambas colas están vacías
-    if (v_izq == -1 && v_der == -1)
-        return NULL;
-
-    // Mayor velocidad gana; empate → izquierda
-    if (v_izq >= v_der)
-        canal_dir = 0;
-    else
-        canal_dir = 1;
-
-    printf("[PRIO] Canal libre -> dirección elegida: %s (vel izq=%d, der=%d)\n",
-           canal_dir == 0 ? "IZQ" : "DER", v_izq, v_der);
-
-    // Extraer el más rápido del lado elegido
-    barco_t *b = (canal_dir == 0)
-                 ? sq_deq_max(&q_left)
-                 : sq_deq_max(&q_right);
+    if (dir_canal == 0) {
+        b = (p_izq != -1) ? sq_deq_max(&q_left) : NULL;
+    } else if (dir_canal == 1) {
+        b = (p_der != -1) ? sq_deq_max(&q_right) : NULL;
+    } else {
+        // Canal libre -> mayor prioridad global; empate -> izquierda
+        if (p_izq >= p_der)
+            b = sq_deq_max(&q_left);
+        else
+            b = sq_deq_max(&q_right);
+    }
 
     if (b) {
-        b->state  = RUNNING;
-        en_canal++;
-        canal_dir = b->direccion;
-        printf("[PRIO] -> Barco %d (%s) autorizado (en_canal=%d)\n",
-               b->id, b->nombre, en_canal);
+        b->state = READY;
+        printf("[PRIO] -> Barco %d (%s) autorizado (prio=%d, dir=%s)\n",
+               b->id, b->nombre, b->prioridad,
+               b->direccion == 0 ? "IZQ" : "DER");
     }
 
     return b;
@@ -103,10 +102,7 @@ static void prio_notify_done(barco_t *b)
     if (en_canal > 0)
         en_canal--;
 
-    if (en_canal == 0)
-        canal_dir = -1;
-
-    printf("[FCFS] Barco %d (%s) salió. en_canal=%d\n",
+    printf("[PRIO] Barco %d (%s) salió. en_canal=%d\n",
            b->id, b->nombre, en_canal);
 }
 

@@ -14,6 +14,8 @@ static int en_canal;    // barcos físicamente dentro
 
 static int orden_global;   // contador global de llegada
 
+extern canal_t *canal_global;
+
 static barco_t *actual = NULL;
 extern canal_t *canal_global;
 extern SemaphoreHandle_t canal_mutex;
@@ -86,71 +88,71 @@ void preempt(barco_t *b)
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *strn_next(void)
 {
-    // Ver mejor candidato en cola
+    int dir_canal = canal_global->direccion_actual;
+
+    // Si actual existe pero fue rechazado, reintentar
+    if (actual != NULL && actual->pos_canal == -1) {
+        if (dir_canal != -1 && dir_canal != actual->direccion)
+            return NULL;
+        return actual;
+    }
+
     int v_izq = sq_peek_max(&q_left);
     int v_der = sq_peek_max(&q_right);
 
-    barco_t *mejor = NULL;
-    int mejor_dir = -1;
-    int mejor_v   = -1;
-
-    if (v_izq == -1 && v_der == -1) {
+    if (v_izq == -1 && v_der == -1 && actual == NULL)
         return NULL;
-    }
 
-    if (v_izq >= v_der) {
-        mejor_dir = 0;
+    // Determinar mejor candidato respetando dirección del canal
+    int mejor_v   = -1;
+    int mejor_dir = -1;
+
+    if (dir_canal == 0) {
         mejor_v   = v_izq;
-    } else {
-        mejor_dir = 1;
+        mejor_dir = 0;
+    } else if (dir_canal == 1) {
         mejor_v   = v_der;
+        mejor_dir = 1;
+    } else {
+        // Canal libre
+        if (v_izq >= v_der) { mejor_v = v_izq; mejor_dir = 0; }
+        else                 { mejor_v = v_der; mejor_dir = 1; }
     }
 
-    // no hay nadie corriendo
+    // Sin barco corriendo -> meter el mejor
     if (actual == NULL) {
+        if (mejor_v == -1) return NULL;
 
-        mejor = (mejor_dir == 0)
-                ? sq_deq_max(&q_left)
-                : sq_deq_max(&q_right);
-
-        if (mejor) {
-            mejor->state = RUNNING;
-            actual = mejor;
-            en_canal = 1;
-            canal_dir = mejor->direccion;
-
-            printf("[SRTN] -> Barco %d entra (sin competencia)\n", mejor->id);
+        barco_t *b = (mejor_dir == 0)
+                     ? sq_deq_max(&q_left)
+                     : sq_deq_max(&q_right);
+        if (b) {
+            b->state = READY;
+            actual   = b;
+            printf("[STRN] -> Barco %d entra\n", b->id);
         }
-
-        return mejor;
+        return b;
     }
 
-    //hay alguien corriendo → evaluar preemption
-    if (mejor_v > actual->velocidad) {
+    // Hay barco corriendo -> evaluar preemption
+    if (actual->pos_canal >= 0 && mejor_v > actual->velocidad) {
+        printf("[STRN] Preempt: barco %d (vel=%d) → barco nuevo (vel=%d)\n",
+               actual->id, actual->velocidad, mejor_v);
 
-        printf("[SRTN] Preempt: %d -> %d\n", actual->id, mejor_v);
-
-        // sacar actual del canal
         preempt(actual);
 
-        // sacar nuevo de la cola
-        mejor = (mejor_dir == 0)
-                ? sq_deq_max(&q_left)
-                : sq_deq_max(&q_right);
-
-        if (mejor) {
-            mejor->state = RUNNING;
-            actual = mejor;
-            canal_dir = mejor->direccion;
-
-            printf("[SRTN] -> Barco %d entra (preemptivo)\n", mejor->id);
+        barco_t *b = (mejor_dir == 0)
+                     ? sq_deq_max(&q_left)
+                     : sq_deq_max(&q_right);
+        if (b) {
+            b->state = READY;
+            actual   = b;
+            printf("[STRN] -> Barco %d entra (preemptivo)\n", b->id);
         }
-
-        return mejor;
+        return b;
     }
 
-    //nadie mejor → sigue el actual
-    return NULL;
+    return NULL; // sigue el actual
 }
 
 /* ─── notify_done ─────────────────────────────────────── */
@@ -165,10 +167,6 @@ static void strn_notify_done(barco_t *b)
     }
 
     if (en_canal > 0)
-        en_canal--;
-
-    if (en_canal == 0)
-        canal_dir = -1;
 
     printf("[SRTN] Barco %d salió\n", b->id);
 }

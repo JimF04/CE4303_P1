@@ -10,6 +10,7 @@ static sched_queue_t q_left, q_right;
 static int canal_dir;      // dirección activa (-1 = libre)
 static int en_canal;       // barcos físicamente dentro
 static int orden_global;   // contador global de llegada
+extern canal_t *canal_global;
 
 /* ─── enqueue público ─────────────────────────────────── */
 static void fcfs_enqueue(barco_t *b)
@@ -51,39 +52,43 @@ static void fcfs_init(canal_t *canal, const config_t *cfg)
     }
 }
 
-
-
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *fcfs_next(void)
 {
-    //si hay alguien dentro, no entra nadie más
-    if (en_canal > 0)
-        return NULL;
-
-    
+	// Solo permitir si el canal tiene espacio en la entrada
+	if (canal_global->ocupacion > 0)
+	    return NULL;
+	
     int orden_izq = sq_peek_front(&q_left);
     int orden_der = sq_peek_front(&q_right);
 
     if (orden_izq == 0x7FFFFFFF && orden_der == 0x7FFFFFFF)
         return NULL;
 
-    canal_dir = (orden_izq <= orden_der) ? 0 : 1;
+    // Respetar dirección activa del canal
+    int dir_canal = canal_global->direccion_actual;
 
-    printf("[FCFS] Canal libre -> dirección elegida: %s (orden izq=%d, der=%d)\n",
-           canal_dir == 0 ? "IZQ" : "DER", orden_izq, orden_der);
+    barco_t *b = NULL;
 
-    barco_t *b = (canal_dir == 0) ? sq_deq(&q_left) : sq_deq(&q_right);
+    if (dir_canal == 0) {
+        // Canal ocupado IZQ -> solo sacar de izquierda
+        b = (orden_izq != 0x7FFFFFFF) ? sq_deq(&q_left) : NULL;
+    } else if (dir_canal == 1) {
+        // Canal ocupado DER -> solo sacar de derecha
+        b = (orden_der != 0x7FFFFFFF) ? sq_deq(&q_right) : NULL;
+    } else {
+        // Canal libre -> FCFS global
+        b = (orden_izq <= orden_der) ? sq_deq(&q_left) : sq_deq(&q_right);
+    }
 
     if (b) {
-        b->state  = RUNNING;
-        en_canal++;
-        printf("[FCFS] -> Barco %d (%s) autorizado (en_canal=%d)\n",
-               b->id, b->nombre, en_canal);
+        b->state = READY; // main lo pone RUNNING al insertar
+        printf("[FCFS] -> Barco %d (%s) autorizado (dir=%s)\n",
+               b->id, b->nombre, b->direccion == 0 ? "IZQ" : "DER");
     }
 
     return b;
 }
-
 
 
 
@@ -96,9 +101,6 @@ static void fcfs_notify_done(barco_t *b)
 
     if (en_canal > 0)
         en_canal--;
-
-    if (en_canal == 0)
-        canal_dir = -1;
 
     printf("[FCFS] Barco %d (%s) salió. en_canal=%d\n",
            b->id, b->nombre, en_canal);
