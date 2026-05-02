@@ -61,9 +61,9 @@ static void sjf_init(canal_t *canal, const config_t *cfg)
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *sjf_next(void)
 {
-	// Un solo barco a la vez
-	if (canal_global->ocupacion > 0)
-	    return NULL;
+    // Un solo barco a la vez
+    if (canal_global->ocupacion > 0)
+        return NULL;
 
     int dir_canal = canal_global->direccion_actual;
 
@@ -73,30 +73,49 @@ static barco_t *sjf_next(void)
     if (v_izq == -1 && v_der == -1)
         return NULL;
 
-    barco_t *b = NULL;
-
+    // Orden de preferencia según dirección del canal
+    int primera, segunda;
     if (dir_canal == 0) {
-        // Canal IZQ -> solo el más rápido de izquierda
-        b = (v_izq != -1) ? sq_deq_max(&q_left) : NULL;
+        primera = 0; segunda = -1;  // solo IZQ
     } else if (dir_canal == 1) {
-        // Canal DER -> solo el más rápido de derecha
-        b = (v_der != -1) ? sq_deq_max(&q_right) : NULL;
+        primera = 1; segunda = -1;  // solo DER
     } else {
         // Canal libre -> el más rápido global; empate -> izquierda
-        if (v_izq >= v_der)
-            b = sq_deq_max(&q_left);
-        else
-            b = sq_deq_max(&q_right);
+        if (v_izq >= v_der) { primera = 0; segunda = 1; }
+        else                 { primera = 1; segunda = 0; }
     }
 
-    if (b) {
+    // Intentar en orden de preferencia
+    int dirs[2] = { primera, segunda };
+    for (int i = 0; i < 2; i++) {
+        int d = dirs[i];
+        if (d == -1) break;
+
+        sched_queue_t *q = (d == 0) ? &q_left : &q_right;
+        int vmax = (d == 0) ? v_izq : v_der;
+        if (vmax == -1) continue;
+
+        // Peek sin desencolar todavía
+        barco_t *candidato = sq_peek_barco_max(q);
+        if (!candidato || candidato->id == -1 || candidato->state == DONE) {
+            sq_deq_max(q);  // limpiar entrada inválida
+            continue;
+        }
+
+        // Consultar al canal si puede entrar ANTES de desencolar
+        if (!canal_puede_entrar(canal_global, candidato))
+            continue;  // bloqueado por política, probar el otro lado
+
+        // Aceptado
+        barco_t *b = sq_deq_max(q);
         b->state = READY;
         printf("[SJF] -> Barco %d (%s) autorizado (vel=%d, dir=%s)\n",
                b->id, b->nombre, b->velocidad,
                b->direccion == 0 ? "IZQ" : "DER");
+        return b;
     }
 
-    return b;
+    return NULL;  // ninguna dirección disponible este tick
 }
 
 /* ─── notify_done ─────────────────────────────────────── */

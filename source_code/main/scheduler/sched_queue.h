@@ -154,4 +154,19 @@ static inline barco_t *sq_peek_barco(sched_queue_t *q)
     return q->data[q->head].barco;
 }
 
+static inline barco_t *sq_peek_barco_max(sched_queue_t *q)
+{
+    if (q->size == 0) return NULL;
+    int max_idx = q->head;
+    int max_val = q->data[q->head].valor;
+    for (int i = 1; i < q->size; i++) {
+        int idx = (q->head + i) % MAX_Q;
+        if (q->data[idx].valor > max_val) {
+            max_val = q->data[idx].valor;
+            max_idx = idx;
+        }
+    }
+    return q->data[max_idx].barco;
+}
+
 #endif /* MAIN_SCHEDULER_SCHED_QUEUE_H_ */

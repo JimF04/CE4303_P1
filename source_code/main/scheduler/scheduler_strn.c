@@ -90,11 +90,18 @@ static barco_t *strn_next(void)
 {
     int dir_canal = canal_global->direccion_actual;
 
-    // Si actual existe pero fue rechazado, reintentar
+    // ── CASO 1: actual existe pero no está en el canal ──
     if (actual != NULL && actual->pos_canal == -1) {
-        if (dir_canal != -1 && dir_canal != actual->direccion)
-            return NULL;
-        return actual;
+
+        // Verificar si la política lo permite ahora
+        if (canal_puede_entrar(canal_global, actual))
+            return actual;
+
+        // Política bloquea: re-encolar y buscar otro lado
+        printf("[STRN] Barco %d bloqueado por política, cediendo\n", actual->id);
+        strn_enqueue(actual);
+        actual = NULL;
+        // caer al caso 2
     }
 
     int v_izq = sq_peek_max(&q_left);
@@ -103,47 +110,75 @@ static barco_t *strn_next(void)
     if (v_izq == -1 && v_der == -1 && actual == NULL)
         return NULL;
 
-    // Determinar mejor candidato respetando dirección del canal
-    int mejor_v   = -1;
-    int mejor_dir = -1;
-
+    // Orden de preferencia según dirección del canal
+    int primera, segunda;
     if (dir_canal == 0) {
-        mejor_v   = v_izq;
-        mejor_dir = 0;
+        primera = 0; segunda = -1;  // solo IZQ
     } else if (dir_canal == 1) {
-        mejor_v   = v_der;
-        mejor_dir = 1;
+        primera = 1; segunda = -1;  // solo DER
     } else {
-        // Canal libre
-        if (v_izq >= v_der) { mejor_v = v_izq; mejor_dir = 0; }
-        else                 { mejor_v = v_der; mejor_dir = 1; }
+        // Canal libre -> el más rápido global
+        if (v_izq >= v_der) { primera = 0; segunda = 1; }
+        else                 { primera = 1; segunda = 0; }
     }
 
-    // Sin barco corriendo -> meter el mejor
+    // Sin barco corriendo -> meter el mejor que pueda entrar
     if (actual == NULL) {
-        if (mejor_v == -1) return NULL;
+        int dirs[2] = { primera, segunda };
+        for (int i = 0; i < 2; i++) {
+            int d = dirs[i];
+            if (d == -1) break;
 
-        barco_t *b = (mejor_dir == 0)
-                     ? sq_deq_max(&q_left)
-                     : sq_deq_max(&q_right);
-        if (b) {
+            sched_queue_t *q = (d == 0) ? &q_left : &q_right;
+
+            // Peek sin desencolar todavía
+            barco_t *candidato = sq_peek_barco_max(q);
+            if (!candidato || candidato->id == -1 || candidato->state == DONE) {
+                sq_deq_max(q);  // limpiar entrada inválida
+                continue;
+            }
+
+            // Consultar al canal si puede entrar ANTES de desencolar
+            if (!canal_puede_entrar(canal_global, candidato))
+                continue;  // bloqueado por política, probar el otro lado
+
+            barco_t *b = sq_deq_max(q);
             b->state = READY;
             actual   = b;
             printf("[STRN] -> Barco %d entra\n", b->id);
+            return b;
         }
-        return b;
+        return NULL;
     }
 
     // Hay barco corriendo -> evaluar preemption
+    // Buscar mejor candidato que pueda entrar en algún lado
+    int mejor_v   = -1;
+    int mejor_dir = -1;
+    int dirs2[2]  = { primera, segunda };
+    for (int i = 0; i < 2; i++) {
+        int d = dirs2[i];
+        if (d == -1) break;
+
+        sched_queue_t *q = (d == 0) ? &q_left : &q_right;
+        barco_t *candidato = sq_peek_barco_max(q);
+        if (!candidato || candidato->id == -1) continue;
+
+        // Solo considerar si la política lo permite
+        if (!canal_puede_entrar(canal_global, candidato)) continue;
+
+        int v = (d == 0) ? v_izq : v_der;
+        if (v > mejor_v) { mejor_v = v; mejor_dir = d; }
+    }
+
     if (actual->pos_canal >= 0 && mejor_v > actual->velocidad) {
-        printf("[STRN] Preempt: barco %d (vel=%d) → barco nuevo (vel=%d)\n",
+        printf("[STRN] Preempt: barco %d (vel=%d) -> nuevo (vel=%d)\n",
                actual->id, actual->velocidad, mejor_v);
 
-        preempt(actual);
+        preempt(actual);  // saca del canal y re-encola; actual = NULL
 
-        barco_t *b = (mejor_dir == 0)
-                     ? sq_deq_max(&q_left)
-                     : sq_deq_max(&q_right);
+        sched_queue_t *q = (mejor_dir == 0) ? &q_left : &q_right;
+        barco_t *b = sq_deq_max(q);
         if (b) {
             b->state = READY;
             actual   = b;

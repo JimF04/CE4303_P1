@@ -30,24 +30,38 @@ static barco_t *elegir_siguiente(void)
 {
     int dir = canal_global->direccion_actual;
 
+    // Construir orden de preferencia igual que FCFS
+    int primera, segunda;
+
     if (dir == 0) {
-        // Canal en dirección IZQ -> solo sacar de q_left
-        return (sq_peek_front(&q_left) != 0x7FFFFFFF)
-               ? sq_deq(&q_left) : NULL;
+        primera = 0; segunda = -1;
+    } else if (dir == 1) {
+        primera = 1; segunda = -1;
+    } else {
+        // Canal libre: preferir IZQ por default en RR
+        primera = 0; segunda = 1;
     }
 
-    if (dir == 1) {
-        // Canal en dirección DER -> solo sacar de q_right
-        return (sq_peek_front(&q_right) != 0x7FFFFFFF)
-               ? sq_deq(&q_right) : NULL;
+    int dirs[2] = { primera, segunda };
+    for (int i = 0; i < 2; i++) {
+        int d = dirs[i];
+        if (d == -1) break;
+
+        sched_queue_t *q = (d == 0) ? &q_left : &q_right;
+        if (sq_peek_front(q) == 0x7FFFFFFF) continue;
+
+        barco_t *candidato = sq_peek_barco(q);
+        if (!candidato || candidato->id == -1 || candidato->state == DONE) {
+            sq_deq(q);  // limpiar inválido
+            continue;
+        }
+
+        // Verificar política ANTES de desencolar
+        if (!canal_puede_entrar(canal_global, candidato))
+            continue;
+
+        return sq_deq(q);
     }
-
-    // Canal libre: preferir IZQ por default
-    if (sq_peek_front(&q_left) != 0x7FFFFFFF)
-        return sq_deq(&q_left);
-
-    if (sq_peek_front(&q_right) != 0x7FFFFFFF)
-        return sq_deq(&q_right);
 
     return NULL;
 }
@@ -122,25 +136,33 @@ static barco_t *rr_next(void)
         return NULL;
     }
 
-	// ── CASO 1: actual existe pero fue rechazado por el canal ──
-    // pos_canal == -1 significa que main no pudo insertarlo
+	// ── CASO 1: actual existe pero no está en el canal ──
     if (actual != NULL && actual->pos_canal == -1) {
-        int dir_canal = canal_global->direccion_actual;
 
-        // Si el canal está ocupado en dirección contraria, esperar
-        if (dir_canal != -1 && dir_canal != actual->direccion) {
-            printf("[RR] Barco %d esperando cambio de dirección\n",
-                   actual->id);
-            return NULL;
+        // Verificar si la política lo permite ahora
+        if (canal_puede_entrar(canal_global, actual)) {
+            printf("[RR] Reintentando barco %d (%s)\n",
+                   actual->id, actual->nombre);
+            return actual;
         }
 
-        // Canal libre o misma dirección: reintentar sin contar ticks
-        printf("[RR] Reintentando barco %d (%s)\n",
-               actual->id, actual->nombre);
-        return actual;
+        // Política lo bloquea: re-encolar y ceder al otro lado
+        printf("[RR] Barco %d bloqueado por política, cediendo\n", actual->id);
+        rr_enqueue(actual);
+        actual   = NULL;
+        rr_ticks = 0;
+
+        barco_t *b = elegir_siguiente();
+        if (!b) return NULL;
+
+        actual = b;
+        printf("[RR] Nuevo (cedido) -> Barco %d (%s) (dir=%s)\n",
+               b->id, b->nombre,
+               b->direccion == 0 ? "IZQ" : "DER");
+        return b;
     }
 	
-	// ── CASO 2: No hay actual -> elegir nuevo ──────────────────
+	// ── CASO 2: No hay actual -> elegir nuevo ──
     if (actual == NULL) {
         barco_t *b = elegir_siguiente();
         if (!b) return NULL;
@@ -152,25 +174,22 @@ static barco_t *rr_next(void)
         printf("[RR] Nuevo -> Barco %d (%s) (dir=%s)\n",
                b->id, b->nombre,
                b->direccion == 0 ? "IZQ" : "DER");
-
         return b;
     }
 	
-	// ── CASO 3: actual está en el canal -> contar quantum ──────
+	// ── CASO 3: actual está en el canal -> contar quantum ──
     rr_ticks++;
 
     if (rr_ticks < RR_QUANTUM)
         return NULL;
 
-    // Quantum agotado: rotar
     rr_ticks = 0;
     barco_t *viejo = actual;
 
     printf("[RR] Quantum terminado para barco %d\n", viejo->id);
 
-    preempt_rr(viejo); // lo saca del canal y re-encola; actual = NULL
+    preempt_rr(viejo);  // actual = NULL después de esto
 
-    // Elegir siguiente de la cola correcta (respeta dirección)
     barco_t *nuevo = elegir_siguiente();
     if (!nuevo) {
         actual = NULL;
