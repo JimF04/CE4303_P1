@@ -9,7 +9,7 @@
 static sched_queue_t q_left, q_right;
 
 /* ─── estado del canal ────────────────────────────────── */
-static int canal_dir;   // dirección activa (-1 = libre)
+//static int canal_dir;   // dirección activa (-1 = libre)
 static int en_canal;    // barcos físicamente dentro
 
 static int orden_global;   // contador global de llegada
@@ -19,6 +19,38 @@ extern canal_t *canal_global;
 extern SemaphoreHandle_t canal_mutex;
 
 static int rr_ticks = 0;
+
+/* ─── helper: elige de la cola correcta según canal ──────
+   Regla:
+   - Canal activo IZQ (0) -> RR en q_left
+   - Canal activo DER (1) -> RR en q_right
+   - Canal libre    (-1)  -> por default IZQ; si no hay, DER
+────────────────────────────────────────────────────────── */
+static barco_t *elegir_siguiente(void)
+{
+    int dir = canal_global->direccion_actual;
+
+    if (dir == 0) {
+        // Canal en dirección IZQ -> solo sacar de q_left
+        return (sq_peek_front(&q_left) != 0x7FFFFFFF)
+               ? sq_deq(&q_left) : NULL;
+    }
+
+    if (dir == 1) {
+        // Canal en dirección DER -> solo sacar de q_right
+        return (sq_peek_front(&q_right) != 0x7FFFFFFF)
+               ? sq_deq(&q_right) : NULL;
+    }
+
+    // Canal libre: preferir IZQ por default
+    if (sq_peek_front(&q_left) != 0x7FFFFFFF)
+        return sq_deq(&q_left);
+
+    if (sq_peek_front(&q_right) != 0x7FFFFFFF)
+        return sq_deq(&q_right);
+
+    return NULL;
+}
 
 
 /* ─── enqueue público ─────────────────────────────────── */
@@ -45,7 +77,6 @@ static void rr_init(canal_t *canal, const config_t *cfg)
     sq_init(&q_right);
 
     orden_global = 0;
-    canal_dir    = -1;
     en_canal     = 0;
 
     // encolar TODOS los barcos
@@ -84,7 +115,6 @@ void preempt_rr(barco_t *b)
 
 /* ─── next ───────────────────────────────────────────── */
 
-
 static barco_t *rr_next(void)
 {
     //no hay barco esperando, no hay siguiente
@@ -92,78 +122,68 @@ static barco_t *rr_next(void)
         return NULL;
     }
 
-    //no hay barco en el canal
-    if (actual == NULL) {
+	// ── CASO 1: actual existe pero fue rechazado por el canal ──
+    // pos_canal == -1 significa que main no pudo insertarlo
+    if (actual != NULL && actual->pos_canal == -1) {
+        int dir_canal = canal_global->direccion_actual;
 
-        int orden_izq = sq_peek_front(&q_left); //sigue la derecha?
-        int orden_der = sq_peek_front(&q_right); //sigue la izquierda
-
-        if (orden_izq == 0x7FFFFFFF && orden_der == 0x7FFFFFFF)
+        // Si el canal está ocupado en dirección contraria, esperar
+        if (dir_canal != -1 && dir_canal != actual->direccion) {
+            printf("[RR] Barco %d esperando cambio de dirección\n",
+                   actual->id);
             return NULL;
-
-        canal_dir = (orden_izq <= orden_der) ? 0 : 1;
-
-        printf("[RR-FCFS] Canal libre -> dirección: %s (izq=%d, der=%d)\n",
-               canal_dir == 0 ? "IZQ" : "DER", orden_izq, orden_der);
-
-        barco_t *b = (canal_dir == 0)
-            ? sq_deq(&q_left)
-            : sq_deq(&q_right);
-
-        if (b) {
-            b->state = RUNNING; //lo ponemos a correr
-            actual = b; //actual es el que va a entrar
-            en_canal = 1; //hay uno en canal
-            rr_ticks = 0; //para contar el quatum
-
-            printf("[RR-FCFS] -> Barco %d (%s) entra\n",
-                   b->id, b->nombre);
         }
+
+        // Canal libre o misma dirección: reintentar sin contar ticks
+        printf("[RR] Reintentando barco %d (%s)\n",
+               actual->id, actual->nombre);
+        return actual;
+    }
+	
+	// ── CASO 2: No hay actual -> elegir nuevo ──────────────────
+    if (actual == NULL) {
+        barco_t *b = elegir_siguiente();
+        if (!b) return NULL;
+
+        b->state = READY;
+        actual   = b;
+        rr_ticks = 0;
+
+        printf("[RR] Nuevo -> Barco %d (%s) (dir=%s)\n",
+               b->id, b->nombre,
+               b->direccion == 0 ? "IZQ" : "DER");
 
         return b;
     }
+	
+	// ── CASO 3: actual está en el canal -> contar quantum ──────
+    rr_ticks++;
 
-    //si ya esta adentro
-    rr_ticks++; //se suma al quatum
-
-    if (rr_ticks < RR_QUANTUM) { //se le acabo el quatum?
+    if (rr_ticks < RR_QUANTUM)
         return NULL;
-    }
 
-    // se le acabo el quatum entonces rotamos de barco
-    rr_ticks = 0; //se vuelve 0
+    // Quantum agotado: rotar
+    rr_ticks = 0;
+    barco_t *viejo = actual;
 
-    barco_t *viejo = actual; //el actual se vuelve el pasado
+    printf("[RR] Quantum terminado para barco %d\n", viejo->id);
 
-    printf("[RR-FCFS] Quantum terminado para barco %d\n", viejo->id);
+    preempt_rr(viejo); // lo saca del canal y re-encola; actual = NULL
 
-    //lo rotas al final
-    preempt_rr(viejo); //quitamos al viejo del canal
-
-    //   elegir siguiente por FCFS otra vez
-    int orden_izq = sq_peek_front(&q_left);
-    int orden_der = sq_peek_front(&q_right);
-
-    if (orden_izq == 0x7FFFFFFF && orden_der == 0x7FFFFFFF) {
+    // Elegir siguiente de la cola correcta (respeta dirección)
+    barco_t *nuevo = elegir_siguiente();
+    if (!nuevo) {
         actual = NULL;
         return NULL;
     }
 
-    canal_dir = (orden_izq <= orden_der) ? 0 : 1;
+    nuevo->state = READY;
+    actual       = nuevo;
 
-    barco_t *nuevo = (canal_dir == 0)
-        ? sq_deq(&q_left)
-        : sq_deq(&q_right);
+    printf("[RR] -> Barco %d (rotación, dir=%s)\n",
+           nuevo->id, nuevo->direccion == 0 ? "IZQ" : "DER");
 
-    if (nuevo) {
-        nuevo->state = RUNNING;
-        actual = nuevo;
-        en_canal = 1;
-
-        printf("[RR-FCFS] -> Barco %d entra (rotación)\n", nuevo->id);
-    }
-
-    return nuevo; //se retorna el nuevo barco que va a correr
+    return nuevo;
 }
 
 /* ─── notify_done ─────────────────────────────────────── */
@@ -179,9 +199,6 @@ static void rr_notify_done(barco_t *b)
 
     if (en_canal > 0)
         en_canal--;
-
-    if (en_canal == 0)
-        canal_dir = -1;
 
     printf("[SRTN] Barco %d salió\n", b->id);
 }

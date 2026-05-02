@@ -8,7 +8,7 @@ void canal_init(canal_t *c, const config_t *cfg)
 {
     c->largo = cfg->canal.largo;
 
-    c->direccion_actual = 0;
+    c->direccion_actual = -1; // canal sin dirección al inicio
 	
     c->ocupacion = 0;
 	
@@ -25,114 +25,115 @@ void canal_init(canal_t *c, const config_t *cfg)
 //recurso que usan los barcos para moverse
 void canal_mover_barco(canal_t *c, barco_t *b)
 {
-    if (!b || b->pos_canal < 0) return; //si aun no esta en el canal chao
-
-    int actual = b->pos_canal; //posicion en el canal
-    int dir = (b->direccion == 0) ? +1 : -1; //direccion en el canal
-
-    //   mover paso a paso (NO saltar)
-    for (int i = 0; i < b->velocidad; i++) {
-
-        int siguiente = actual + dir;
-
-        //   salida del canal
-        if (siguiente < 0 || siguiente >= c->largo) {
-
-            c->slots[actual] = NULL;
-
-            b->posicion_guardada = actual;  // guardar progreso
-            b->pos_canal = -1; 
-            b->state = DONE;
-
-            c->ocupacion--;
-
-            printf("[BARCO] %d salió del canal\n", b->id);
-            return;
+    // Mover barcos según dirección
+    if (c->direccion_actual == 0) {
+        // izquierda -> derecha
+        for (int i = c->largo - 2; i >= 0; i--) {
+            if (c->slots[i] != NULL && c->slots[i+1] == NULL) {
+                c->slots[i+1] = c->slots[i];
+                c->slots[i] = NULL;
+                c->slots[i+1]->posicion_guardada = i+1;
+				c->slots[i+1]->pos_canal = i+1;
+            }
         }
-
-        //   si va a colisionar se detiene
-        if (c->slots[siguiente] != NULL) {
-            return;
+    } else {
+        // derecha -> izquierda
+        for (int i = 1; i < c->largo; i++) {
+            if (c->slots[i] != NULL && c->slots[i-1] == NULL) {
+                c->slots[i-1] = c->slots[i];
+                c->slots[i] = NULL;
+                c->slots[i-1]->posicion_guardada = i-1;
+				c->slots[i-1]->pos_canal = i-1;
+            }
         }
-
-        //   mover un paso
-        c->slots[actual] = NULL; 
-        c->slots[siguiente] = b;
-
-        actual = siguiente;
-        b->pos_canal = actual;
     }
+
+    // Sacar barcos que llegaron al final
+    int borde = (c->direccion_actual == 0 ? c->largo - 1 : 0);
+
+    if (c->slots[borde] != NULL) {
+        barco_t *b = c->slots[borde];
+        c->slots[borde] = NULL;
+        c->ocupacion--;
+
+        b->state = DONE;
+        b->posicion_guardada = -1;
+		b->pos_canal = -1;
+
+        printf("[CANAL] Barco %d salió del canal\n", b->id);
+    }
+
+    // Si quedó vacío -> reset dirección
+    if (c->ocupacion == 0)
+        c->direccion_actual = -1;
 }
 
-void canal_insertar(canal_t *c, barco_t *b)
+int canal_insertar(canal_t *c, barco_t *b)
 {
-    if (!b) return; 
+    if (!canal_puede_entrar(c, b))
+        return 0;
 
-    //  si el canal esta ocupado no entra nadie
-    if (c->ocupacion > 0) {
-        return;
-    }
+    int pos;
 
-    //  ya esta en el canal
-    if (b->pos_canal != -1) {
-        return;
-    }
-
-    //   el estado no es ni ready ni running, chao
-    if (b->state != RUNNING && b->state != READY) return;
-
-    //   Política
-    if (b->direccion == 0 && !c->policy->allow_left(c->policy, c))  return;
-    if (b->direccion == 1 && !c->policy->allow_right(c->policy, c)) return;
-
-    int entrada = -1;
-
-    //   1. Intentar usar posición guardada, si se estaba ejecutando antes 
+    // Determinar posición final (guardada o entrada real)
     if (b->posicion_guardada >= 0 &&
         b->posicion_guardada < c->largo &&
         c->slots[b->posicion_guardada] == NULL)
     {
-        entrada = b->posicion_guardada;
+        pos = b->posicion_guardada;
     }
-    else {
-        //   Entrada REAL según dirección
-        if (b->direccion == 0)
-            entrada = 0;                // izquierda entra por 0
-        else
-            entrada = c->largo - 1;     // derecha entra por el final
+    else
+    {
+        pos = (b->direccion == 0 ? 0 : c->largo - 1);
     }
 
-    if (entrada < 0 || entrada >= c->largo) return; //entrada no valida
+    // Si canal estaba vacío -> fijar nueva dirección
+    if (c->ocupacion == 0)
+        c->direccion_actual = b->direccion;
 
-    //   Validar que el slot esté libre
-    if (!canal_puede_entrar(c, b, entrada)) {
-        return;
-    }
+    // Insertar
+    c->slots[pos] = b;
+    b->posicion_guardada = pos;
+	b->pos_canal = pos;
+    c->ocupacion++;
+    b->state = RUNNING;
 
-    //   Insertar
-    c->slots[entrada] = b; //el slot es igual al barco
-    b->pos_canal = entrada; //se restaura la posicion en el canal
-    c->ocupacion++; //se vuelve a ocupar el canal
+    printf("[CANAL] Barco %d entró al canal (pos=%d, RUNNING)\n", b->id, pos);
 
-    printf("[CANAL] Barco %d (%s) insertado en slot %d\n",
-           b->id, b->nombre, entrada);
+    return 1;
 }
 
 
 // Metodo para verificar si puede entrar al canal
-int canal_puede_entrar(canal_t *c, barco_t *b, int entrada)
+int canal_puede_entrar(canal_t *c, barco_t *b)
 {
-    if (!b) return 0; //barco invalido
+    if (!b) return 0;
 
-    //   Canal ocupado no entra
-    if (c->ocupacion > 0) return 0;
+    // Política
+    if (c->policy && !c->policy->allow(c->policy, c, b))
+        return 0;
 
-    if (entrada < 0 || entrada >= c->largo) return 0; //donde quiere entrar es invalido
+    int entrada_real = (b->direccion == 0 ? 0 : c->largo - 1);
 
-    //   Solo validar el slot de entrada
-    if (c->slots[entrada] != NULL) return 0; //ya hay alguien ahi
+    // Canal vacío
+    if (c->ocupacion == 0) {
+        if (b->posicion_guardada >= 0 &&
+            b->posicion_guardada < c->largo &&
+            c->slots[b->posicion_guardada] == NULL)
+            return 1;
 
-    return 1; //sino que entre sin problemas
+        return (c->slots[entrada_real] == NULL);
+    }
+
+    // Canal NO vacío -> dirección debe coincidir
+    if (c->direccion_actual != b->direccion)
+        return 0;
+
+    // Entrada real debe estar libre
+    if (c->slots[entrada_real] != NULL)
+        return 0;
+
+    return 1;
 }
 
 
@@ -146,12 +147,15 @@ void canal_remover_barco(canal_t *c, barco_t *b)
     int pos = b->pos_canal; //posicion de barco en el canal
 
     if (pos >= 0 && pos < c->largo && c->slots[pos] == b) {
-    c->slots[pos] = NULL; //se quita el barco del canal
-    c->ocupacion--; //se va la ocupacion
-}
-
-b->posicion_guardada = pos; //se guarda la posicion para restaurar el estado luego
-b->pos_canal = -1; //se pone como que no esta, para que no se dibuje
+	    c->slots[pos] = NULL; //se quita el barco del canal
+	    c->ocupacion--; //se va la ocupacion
+	}
+	
+	if (c->ocupacion == 0)
+	    c->direccion_actual = -1;
+	
+	b->posicion_guardada = pos; //se guarda la posicion para restaurar el estado luego
+	b->pos_canal = -1; //se pone como que no esta, para que no se dibuje
 
     printf("[CANAL] Barco %d removido\n", b->id);
 }

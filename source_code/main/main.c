@@ -112,15 +112,18 @@ void app_main(void)
 
     barco_t *nuevo = sched.next(); //el barco que sigue segun el scheduler
 
-    if (nuevo != NULL) {
-            xSemaphoreTake(canal_mutex, portMAX_DELAY); //se proteje el canal
+	if (nuevo != NULL) {
 
-            canal_insertar(&canal, nuevo); //se inserta el nuevo barco
+		xSemaphoreTake(canal_mutex, portMAX_DELAY);
 
-            xSemaphoreGive(canal_mutex); //se libera
+		if (canal_insertar(&canal, nuevo)) {
+		    // Notificar al barco que entró
+			nuevo->state = RUNNING;
+		    xTaskNotifyGive(nuevo->handle);
+		}
 
-            xTaskNotifyGive(nuevo->handle); //se despierta a los barcos, a ver si fueron los elegidos 
-        }
+		xSemaphoreGive(canal_mutex);
+	}
 
     // =========================
     // DESPERTAR BARCOS ACTIVOS

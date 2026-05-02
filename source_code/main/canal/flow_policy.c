@@ -28,26 +28,17 @@ static int tico_dir_activa(canal_t *c)
     return -1; // canal vacío
 }
 
-static int tico_allow_left(flow_policy_t *self, canal_t *c)
+static int tico_allow(flow_policy_t *self, canal_t *c, barco_t *b)
 {
     (void)self;
     int dir = tico_dir_activa(c);
-	// Puede entrar si el canal está vacío o ya van hacia la izquierda (dir=0)
-    if (dir == -1 || dir == 0) {
-        c->direccion_actual = 0;  //actualiza el canal
-        return 1;
-    }
-    return 0;
-}
 
-static int tico_allow_right(flow_policy_t *self, canal_t *c)
-{
-    (void)self;
-    int dir = tico_dir_activa(c);
-    if (dir == -1 || dir == 1) {
-        c->direccion_actual = 1;  //actualiza el canal
-        return 1;
-    }
+    // canal vacío -> puede entrar cualquiera
+    if (dir == -1) return 1;
+
+    // si la dirección coinciden -> permitir
+    if (dir == b->direccion) return 1;
+
     return 0;
 }
 
@@ -67,8 +58,7 @@ flow_policy_t *flow_policy_create(const char *mode, const config_t *cfg)
 
     if (strcmp(mode, "TICO") == 0) {
 		p->init        = tico_init;
-		p->allow_left  = tico_allow_left;
-		p->allow_right = tico_allow_right;
+		p->allow       = tico_allow;
 		p->tick        = tico_tick;
 		p->state       = NULL;
         return p;
@@ -76,8 +66,7 @@ flow_policy_t *flow_policy_create(const char *mode, const config_t *cfg)
 
     // Default = TICO
     p->init        = tico_init;
-    p->allow_left  = tico_allow_left;
-    p->allow_right = tico_allow_right;
+	p->allow       = tico_allow;
     p->tick        = tico_tick;
     p->state       = NULL;
     return p;

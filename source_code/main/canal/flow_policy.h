@@ -8,13 +8,14 @@
 
 typedef struct flow_policy flow_policy_t;
 
+typedef int (*flow_allow_fn)(flow_policy_t *self, canal_t *c, barco_t *b);
+
 struct flow_policy {
     void (*init)(flow_policy_t *self, canal_t *c, const config_t *cfg);
 
 	// Puede entrar un barco de ese lado?
-    int  (*allow_left)(flow_policy_t *self, canal_t *c);
-    int  (*allow_right)(flow_policy_t *self, canal_t *c);
-
+    flow_allow_fn allow;
+	
 	// Llamado al final de cada tick (después de mover barcos)
     void (*tick)(flow_policy_t *self, canal_t *c);
 	

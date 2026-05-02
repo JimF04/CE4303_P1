@@ -39,6 +39,9 @@ void barco_task(void *arg)
             canal_mover_barco(canal_global, b); //usamos el recurso para moverse
         }
 		
+		if (b->state != DONE)
+		    b->state = READY;
+		
 		//print_tasks_real();
 
         xSemaphoreGive(canal_mutex); //soltamos el canal para que lo use otro barco
