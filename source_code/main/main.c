@@ -111,18 +111,21 @@ void app_main(void)
 
 
     barco_t *nuevo = sched.next(); //el barco que sigue segun el scheduler
-
+	
 	if (nuevo != NULL) {
+	    xSemaphoreTake(canal_mutex, portMAX_DELAY);
 
-		xSemaphoreTake(canal_mutex, portMAX_DELAY);
+	    if (canal_insertar(&canal, nuevo)) {
+	        nuevo->state = RUNNING;
+	        if (nuevo->handle != NULL)
+	            xTaskNotifyGive(nuevo->handle);
+	    } else {
+	        printf("[MAIN] WARN: insert falló para barco %d, re-encolando\n", nuevo->id);
+	        if (nuevo->id != -1 && nuevo->state != DONE)
+	            sched.enqueue(nuevo);
+	    }
 
-		if (canal_insertar(&canal, nuevo)) {
-		    // Notificar al barco que entró
-			nuevo->state = RUNNING;
-		    xTaskNotifyGive(nuevo->handle);
-		}
-
-		xSemaphoreGive(canal_mutex);
+	    xSemaphoreGive(canal_mutex);
 	}
 
     // =========================

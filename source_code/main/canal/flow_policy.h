@@ -21,9 +21,10 @@ struct flow_policy {
 	
 	// Estado interno de la política (cada impl. usa su propio struct)
     void *state;
+	
+	void (*notify_salio)(flow_policy_t*, int direccion);
 };
 
 flow_policy_t *flow_policy_create(const char *mode, const config_t *cfg);
-
 
 #endif /* MAIN_CANAL_FLOW_POLICY_H_ */

@@ -16,10 +16,14 @@ extern canal_t *canal_global;
 static void fcfs_enqueue(barco_t *b)
 {
     if (!b) return;
+    if (b->id == -1) return;           // slot liberado
+    if (b->pos_canal >= 0) return;     // ya está dentro del canal
+    if (b->state == DONE) return;      // ya terminó
+
     b->state = READY;
 
     sched_queue_t *q = (b->direccion == 0) ? &q_left : &q_right;
-    sq_enq(q, b, orden_global++);   // valor = orden de llegada
+    sq_enq(q, b, orden_global++);
 
     printf("[FCFS] Barco %d (%s) encolado (orden=%d, dir=%s)\n",
            b->id, b->nombre, orden_global - 1,
@@ -55,39 +59,61 @@ static void fcfs_init(canal_t *canal, const config_t *cfg)
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *fcfs_next(void)
 {
-	// Solo permitir si el canal tiene espacio en la entrada
-	if (canal_global->ocupacion > 0)
-	    return NULL;
-	
+    if (canal_global->ocupacion > 0)
+        return NULL;
+
     int orden_izq = sq_peek_front(&q_left);
     int orden_der = sq_peek_front(&q_right);
 
     if (orden_izq == 0x7FFFFFFF && orden_der == 0x7FFFFFFF)
         return NULL;
 
-    // Respetar dirección activa del canal
     int dir_canal = canal_global->direccion_actual;
 
-    barco_t *b = NULL;
+    // Construir orden de preferencia de direcciones
+    int primera, segunda;
 
     if (dir_canal == 0) {
-        // Canal ocupado IZQ -> solo sacar de izquierda
-        b = (orden_izq != 0x7FFFFFFF) ? sq_deq(&q_left) : NULL;
+        primera = 0; segunda = -1;  // solo IZQ
     } else if (dir_canal == 1) {
-        // Canal ocupado DER -> solo sacar de derecha
-        b = (orden_der != 0x7FFFFFFF) ? sq_deq(&q_right) : NULL;
+        primera = 1; segunda = -1;  // solo DER
     } else {
-        // Canal libre -> FCFS global
-        b = (orden_izq <= orden_der) ? sq_deq(&q_left) : sq_deq(&q_right);
+        // Canal libre: preferir por orden FCFS, pero probar ambas
+        if (orden_izq <= orden_der) {
+            primera = 0; segunda = 1;
+        } else {
+            primera = 1; segunda = 0;
+        }
     }
 
-    if (b) {
-        b->state = READY; // main lo pone RUNNING al insertar
+    // Intentar primera dirección
+    int dirs[2] = { primera, segunda };
+    for (int i = 0; i < 2; i++) {
+        int d = dirs[i];
+        if (d == -1) break;
+
+        sched_queue_t *q = (d == 0) ? &q_left : &q_right;
+        int orden = (d == 0) ? orden_izq : orden_der;
+        if (orden == 0x7FFFFFFF) continue;
+
+        barco_t *candidato = sq_peek_barco(q);
+        if (!candidato || candidato->id == -1 || candidato->state == DONE) {
+            sq_deq(q);  // limpiar entrada inválida
+            continue;
+        }
+
+        if (!canal_puede_entrar(canal_global, candidato))
+            continue;  // esta dirección bloqueada por política, probar la otra
+
+        // Aceptado
+        barco_t *b = sq_deq(q);
+        b->state = READY;
         printf("[FCFS] -> Barco %d (%s) autorizado (dir=%s)\n",
                b->id, b->nombre, b->direccion == 0 ? "IZQ" : "DER");
+        return b;
     }
 
-    return b;
+    return NULL;  // ninguna dirección disponible este tick
 }
 
 

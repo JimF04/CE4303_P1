@@ -147,5 +147,11 @@ static inline int sq_get_queue(sched_queue_t *q, barco_t **out, int max)
     return count;
 }
 
+/* ─── peek barco frente (FIFO) ────────────────────────── */
+static inline barco_t *sq_peek_barco(sched_queue_t *q)
+{
+    if (q->size == 0) return NULL;
+    return q->data[q->head].barco;
+}
 
 #endif /* MAIN_SCHEDULER_SCHED_QUEUE_H_ */

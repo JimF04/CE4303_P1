@@ -25,45 +25,73 @@ void canal_init(canal_t *c, const config_t *cfg)
 //recurso que usan los barcos para moverse
 void canal_mover_barco(canal_t *c, barco_t *b)
 {
-    // Mover barcos según dirección
     if (c->direccion_actual == 0) {
-        // izquierda -> derecha
+        // izquierda -> derecha: iterar de derecha a izquierda
         for (int i = c->largo - 2; i >= 0; i--) {
-            if (c->slots[i] != NULL && c->slots[i+1] == NULL) {
-                c->slots[i+1] = c->slots[i];
+            if (c->slots[i] == NULL) continue;
+
+            barco_t *barco = c->slots[i];
+            int pasos = barco->velocidad;  // cuántos slots avanza este tick
+            int nueva_pos = i;
+
+            // Intentar avanzar 'pasos' slots
+            for (int p = 0; p < pasos; p++) {
+                int siguiente = nueva_pos + 1;
+                if (siguiente >= c->largo) break;        // llegó al borde
+                if (c->slots[siguiente] != NULL) break;  // bloqueado por otro barco
+                nueva_pos = siguiente;
+            }
+
+            if (nueva_pos != i) {
+                c->slots[nueva_pos] = barco;
                 c->slots[i] = NULL;
-                c->slots[i+1]->posicion_guardada = i+1;
-				c->slots[i+1]->pos_canal = i+1;
+                barco->posicion_guardada = nueva_pos;
+                barco->pos_canal = nueva_pos;
             }
         }
     } else {
-        // derecha -> izquierda
+        // derecha -> izquierda: iterar de izquierda a derecha
         for (int i = 1; i < c->largo; i++) {
-            if (c->slots[i] != NULL && c->slots[i-1] == NULL) {
-                c->slots[i-1] = c->slots[i];
+            if (c->slots[i] == NULL) continue;
+
+            barco_t *barco = c->slots[i];
+            int pasos = barco->velocidad;
+            int nueva_pos = i;
+
+            for (int p = 0; p < pasos; p++) {
+                int siguiente = nueva_pos - 1;
+                if (siguiente < 0) break;                // llegó al borde
+                if (c->slots[siguiente] != NULL) break;  // bloqueado
+                nueva_pos = siguiente;
+            }
+
+            if (nueva_pos != i) {
+                c->slots[nueva_pos] = barco;
                 c->slots[i] = NULL;
-                c->slots[i-1]->posicion_guardada = i-1;
-				c->slots[i-1]->pos_canal = i-1;
+                barco->posicion_guardada = nueva_pos;
+                barco->pos_canal = nueva_pos;
             }
         }
     }
 
-    // Sacar barcos que llegaron al final
+    // Sacar barcos que llegaron al borde
     int borde = (c->direccion_actual == 0 ? c->largo - 1 : 0);
 
     if (c->slots[borde] != NULL) {
-        barco_t *b = c->slots[borde];
+        barco_t *saliente = c->slots[borde];
         c->slots[borde] = NULL;
         c->ocupacion--;
 
-        b->state = DONE;
-        b->posicion_guardada = -1;
-		b->pos_canal = -1;
+        saliente->state = DONE;
+        saliente->posicion_guardada = -1;
+        saliente->pos_canal = -1;
 
-        printf("[CANAL] Barco %d salió del canal\n", b->id);
+        if (c->policy && c->policy->notify_salio)
+            c->policy->notify_salio(c->policy, saliente->direccion);
+
+        printf("[CANAL] Barco %d salió del canal\n", saliente->id);
     }
 
-    // Si quedó vacío -> reset dirección
     if (c->ocupacion == 0)
         c->direccion_actual = -1;
 }

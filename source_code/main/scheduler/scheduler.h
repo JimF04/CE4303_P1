@@ -14,17 +14,19 @@ typedef void (*sched_release_fn)(void);
 typedef void (*sched_enqueue_fn)(barco_t *b);   
 typedef void (*sched_notify_done_fn)(barco_t *b); 
 typedef int (*sched_get_queue_fn)(int direccion, barco_t **out, int max);
+typedef void (*sched_confirm)(barco_t*);
 
 /* =========================
    INTERFAZ SCHEDULER
    ========================= */
 typedef struct {
     void (*init)(canal_t *canal, const config_t *cfg);
-   sched_next_fn next;
+    sched_next_fn next;
 	sched_release_fn release;
 	sched_enqueue_fn enqueue;       
 	sched_notify_done_fn notify_done;
 	sched_get_queue_fn get_queue;
+	sched_confirm confirm;
 }  scheduler_t;
 
 /* =========================
