@@ -3,6 +3,7 @@
 //#include "debug.h"
 #include "barcos/barco.h"
 #include "canal/canal.h"
+#include "canal/flow_policy.h"
 #include "scheduler/scheduler.h"
 #include "input/input_task.h"
 #include "driver/uart.h"
@@ -104,6 +105,14 @@ void app_main(void)
             i--; //se baja la cantidad de barcos
         }
     }
+	
+	// =========================
+	// TICK DE POLÍTICA (ej: LETRERO)
+	// =========================
+	xSemaphoreTake(canal_mutex, portMAX_DELAY);
+	if (canal.policy && canal.policy->tick)
+	    canal.policy->tick(canal.policy, &canal);
+	xSemaphoreGive(canal_mutex);
 
     // =========================
     // SCHEDULER: NUEVO BARCO

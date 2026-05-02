@@ -3,7 +3,103 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "esp_timer.h"
 
+/* ═══════════════════════════════════════════════════════
+   LETRERO
+   ─ Cambia la dirección permitida cada tiempo_letrero_ms.
+   ─ Garantiza no-colisión: si hay barcos adentro de una
+     dirección, la contraria NO puede entrar.
+   ─ Si el timer expira con barcos adentro, espera a que
+     el canal se vacíe antes de cambiar de lado.
+═══════════════════════════════════════════════════════ */
+
+typedef struct {
+    int     dir_activa;     // dirección que muestra el letrero ahora
+    int     dir_pendiente;  // dirección a la que quiere cambiar (-1 = sin cambio pendiente)
+    int     tiempo_us;      // duración de cada turno en microsegundos
+    int64_t ultimo_cambio;  // timestamp real del último cambio (esp_timer_get_time)
+} letrero_state_t;
+
+static letrero_state_t letrero_state;
+
+static void letrero_init(flow_policy_t *self, canal_t *c, const config_t *cfg)
+{
+    (void)c;
+    letrero_state.dir_activa    = 0;                                  // arranca IZQ
+    letrero_state.dir_pendiente = -1;                                 // sin cambio pendiente
+    letrero_state.tiempo_us     = cfg->canal.tiempo_letrero_ms * 1000; // ms -> us reales
+    letrero_state.ultimo_cambio = esp_timer_get_time();               // marca de inicio
+    self->state                 = &letrero_state;
+
+    printf("[LETRERO] tiempo=%dms, arranca %s\n",
+           cfg->canal.tiempo_letrero_ms,
+           letrero_state.dir_activa == 0 ? "IZQ" : "DER");
+}
+
+// Devuelve la dirección activa en el canal (-1 si vacío)
+static int letrero_dir_activa_canal(canal_t *c)
+{
+    for (int i = 0; i < c->largo; i++)
+        if (c->slots[i] != NULL)
+            return c->slots[i]->direccion;
+    return -1;
+}
+
+static int letrero_allow(flow_policy_t *self, canal_t *c, barco_t *b)
+{
+    letrero_state_t *s = (letrero_state_t *)self->state;
+    int dir_canal = letrero_dir_activa_canal(c);
+
+    // No-colisión: si hay barcos adentro de otra dirección, bloquear
+    if (dir_canal != -1 && dir_canal != b->direccion)
+        return 0;
+
+    // Si hay cambio pendiente y el canal está vacío -> aplicar cambio ahora
+    if (s->dir_pendiente != -1 && dir_canal == -1) {
+        s->dir_activa    = s->dir_pendiente;
+        s->dir_pendiente = -1;
+        printf("[LETRERO] Cambio aplicado -> %s\n",
+               s->dir_activa == 0 ? "IZQ" : "DER");
+    }
+
+    // Solo permite la dirección activa del letrero
+    return (b->direccion == s->dir_activa) ? 1 : 0;
+}
+
+static void letrero_tick(flow_policy_t *self, canal_t *c)
+{
+    letrero_state_t *s = (letrero_state_t *)self->state;
+
+    // Si ya hay un cambio pendiente, no contar más tiempo
+    if (s->dir_pendiente != -1)
+        return;
+
+    // Medir tiempo real transcurrido desde el último cambio
+    int64_t ahora   = esp_timer_get_time();
+    int64_t pasados = ahora - s->ultimo_cambio;
+
+    if (pasados < s->tiempo_us)
+        return;
+
+    // Timer expiró -> intentar cambiar
+    int dir_canal = letrero_dir_activa_canal(c);
+    int nuevo     = 1 - s->dir_activa;
+
+    s->ultimo_cambio = ahora;  // resetear timestamp siempre al expirar
+
+    if (dir_canal == -1) {
+        // Canal vacío -> cambiar inmediatamente
+        s->dir_activa = nuevo;
+        printf("[LETRERO] Cambio inmediato -> %s\n",
+               s->dir_activa == 0 ? "IZQ" : "DER");
+    } else {
+        // Canal ocupado -> marcar pendiente, esperar vaciado
+        s->dir_pendiente = nuevo;
+        printf("[LETRERO] Timer expiró, esperando vaciado para cambiar a %s\n",
+               nuevo == 0 ? "IZQ" : "DER");
+    }
+}
 /* ═══════════════════════════════════════════════════════
    EQUIDAD
    ─ Parametro W que indica cuantos barcos deben de pasar
@@ -181,6 +277,15 @@ flow_policy_t *flow_policy_create(const char *mode, const config_t *cfg)
 		p->tick        = equidad_tick;
 		p->state       = NULL;
 		p->notify_salio = equidad_notify_salio;
+	    return p;
+	}
+	
+	if (strcmp(mode, "LETRERO") == 0) {
+	    p->init         = letrero_init;
+	    p->allow        = letrero_allow;
+	    p->tick         = letrero_tick;
+	    p->state        = NULL;
+	    p->notify_salio = NULL;
 	    return p;
 	}
 
