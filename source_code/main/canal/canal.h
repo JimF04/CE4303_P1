@@ -3,6 +3,7 @@
 #define MAIN_CANAL_CANAL_H_
 
 #include "../barcos/barco.h"
+#include "freertos/semphr.h"
 
 #define MAX_LARGO 50
 
@@ -20,7 +21,9 @@ typedef struct{
 	
 	int barcos_pasados;
 	int limite_w;
-	
+
+	SemaphoreHandle_t mutex; 
+
 	flow_policy_t *policy;
 }canal_t;
 
@@ -35,5 +38,12 @@ int canal_puede_entrar(canal_t *c, barco_t *b);
 void canal_print(canal_t *c);
 
 void canal_remover_barco(canal_t *c, barco_t *b);
+
+void canal_viene_buque_carepicha(canal_t *c);
+
+void buque_task(void *arg);
+
+
+
 
 #endif /* MAIN_CANAL_CANAL_H_ */

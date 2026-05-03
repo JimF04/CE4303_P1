@@ -5,6 +5,7 @@
 #include "../canal/canal.h"
 #include "../config.h"
 
+
 /* =========================
    TIPOS DE FUNCIÓN
    ========================= */

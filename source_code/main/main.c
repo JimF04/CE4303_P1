@@ -13,9 +13,9 @@
 
 config_t config;
 canal_t *canal_global;
-SemaphoreHandle_t canal_mutex;
 
 scheduler_t sched;
+scheduler_t *scheduler_global = &sched;
 
 
 
@@ -42,12 +42,7 @@ void app_main(void)
 	// =========================
 	// 3. MUTEX
 	// =========================
-	canal_mutex = xSemaphoreCreateMutex();
 	
-	if (canal_mutex == NULL) {
-	    printf("ERROR creando mutex\n");
-	    return;
-	}
 	
 	// =========================
 	// 4. CREAR BARCOS (TASKS) POR DEFAULT 
@@ -79,11 +74,11 @@ void app_main(void)
 
 
     // Crear tarea de input
-    xTaskCreate(input_task, "input", 4096, NULL, 5, NULL);
+    xTaskCreate(input_task, "input_task", 4096, NULL, 4, NULL);
 	
     while (1) {
 
-    printf("\n========== TICK ==========\n");
+    
 
     // =========================
     // LIMPIAR TERMINADOS
@@ -109,10 +104,9 @@ void app_main(void)
 	// =========================
 	// TICK DE POLÍTICA (ej: LETRERO)
 	// =========================
-	xSemaphoreTake(canal_mutex, portMAX_DELAY);
+
 	if (canal.policy && canal.policy->tick)
 	    canal.policy->tick(canal.policy, &canal);
-	xSemaphoreGive(canal_mutex);
 
     // =========================
     // SCHEDULER: NUEVO BARCO
@@ -122,8 +116,6 @@ void app_main(void)
     barco_t *nuevo = sched.next(); //el barco que sigue segun el scheduler
 	
 	if (nuevo != NULL) {
-	    xSemaphoreTake(canal_mutex, portMAX_DELAY);
-
 	    if (canal_insertar(&canal, nuevo)) {
 	        nuevo->state = RUNNING;
 	        if (nuevo->handle != NULL)
@@ -133,8 +125,6 @@ void app_main(void)
 	        if (nuevo->id != -1 && nuevo->state != DONE)
 	            sched.enqueue(nuevo);
 	    }
-
-	    xSemaphoreGive(canal_mutex);
 	}
 
     // =========================

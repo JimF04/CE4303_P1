@@ -18,7 +18,6 @@ extern canal_t *canal_global;
 
 static barco_t *actual = NULL;
 extern canal_t *canal_global;
-extern SemaphoreHandle_t canal_mutex;
 
 
 
@@ -68,11 +67,11 @@ void preempt(barco_t *b)
 {
     if (!b) return; //que sea un barco valido
 
-    xSemaphoreTake(canal_mutex, portMAX_DELAY); //protege el canal
+    // xSemaphoreTake(canal_global->mutex, portMAX_DELAY); //protege el canal
 
     canal_remover_barco(canal_global, b); //llama a quitar el barco
 
-    xSemaphoreGive(canal_mutex); //lo libera
+    // xSemaphoreGive(canal_global->mutex); //lo libera
 
     b->state = READY; //lo devuelve a ready
     actual = NULL;

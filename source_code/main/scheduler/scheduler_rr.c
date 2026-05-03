@@ -16,7 +16,7 @@ static int orden_global;   // contador global de llegada
 
 static barco_t *actual = NULL;
 extern canal_t *canal_global;
-extern SemaphoreHandle_t canal_mutex;
+
 
 static int rr_ticks = 0;
 
@@ -111,11 +111,11 @@ void preempt_rr(barco_t *b)
 {
     if (!b) return;
 
-    xSemaphoreTake(canal_mutex, portMAX_DELAY);
+    // xSemaphoreTake(canal_global->mutex, portMAX_DELAY);
 
     canal_remover_barco(canal_global, b);
 
-    xSemaphoreGive(canal_mutex);
+    // xSemaphoreGive(canal_global->mutex);
 
     b->state = READY;
     actual = NULL;

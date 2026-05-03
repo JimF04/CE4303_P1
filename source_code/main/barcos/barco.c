@@ -11,7 +11,6 @@
 #include "../debug.h"
 
 extern canal_t *canal_global;
-extern SemaphoreHandle_t canal_mutex;
 extern scheduler_t sched;
 
 
@@ -32,7 +31,7 @@ void barco_task(void *arg)
 
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY); //notificacion para que se despierte
 
-        xSemaphoreTake(canal_mutex, portMAX_DELAY); //para que no se despiche todo, compartiendo el canal
+        // xSemaphoreTake(canal_global->mutex, portMAX_DELAY); //para que no se despiche todo, compartiendo el canal
 
         //solo mueve
         if (b->pos_canal >= 0) {
@@ -44,7 +43,7 @@ void barco_task(void *arg)
 		
 		//print_tasks_real();
 
-        xSemaphoreGive(canal_mutex); //soltamos el canal para que lo use otro barco
+        // xSemaphoreGive(canal_global->mutex); //soltamos el canal para que lo use otro barco
 
         if (b->state == DONE) { //si el barco termina:
             sched.notify_done(b); //se notifica que ya termino 
@@ -208,6 +207,12 @@ void eliminar_barco(int index)
 
     printf("Barco eliminado (slot %d liberado)\n", index);
 }
+
+
+
+
+
+
 // ========================
 //   ACCESORES
 // ========================
