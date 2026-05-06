@@ -59,9 +59,6 @@ static void fcfs_init(canal_t *canal, const config_t *cfg)
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *fcfs_next(void)
 {
-    if (canal_global->ocupacion > 0)
-        return NULL;
-
     int orden_izq = sq_peek_front(&q_left);
     int orden_der = sq_peek_front(&q_right);
 

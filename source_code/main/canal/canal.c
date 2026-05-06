@@ -132,6 +132,74 @@ int canal_insertar(canal_t *c, barco_t *b)
     return 1;
 }
 
+// Retorna la distancia mínima que debe haber entre la entrada
+// y el barco más cercano a ella, para que el nuevo no lo alcance.
+int canal_entrada_segura(canal_t *c, barco_t *nuevo)
+{
+    int entrada = (nuevo->direccion == 0) ? 0 : c->largo - 1;
+    int paso    = (nuevo->direccion == 0) ? 1 : -1;
+
+    // Buscar el barco más cercano a la entrada
+    for (int i = entrada; i >= 0 && i < c->largo; i += paso) {
+        if (c->slots[i] == NULL) continue;
+
+        barco_t *delante = c->slots[i];
+        int d = abs(i - entrada); // distancia actual entre entrada y delante
+
+        // Si delante es igual o más rápido: nunca lo alcanza
+        if (delante->velocidad >= nuevo->velocidad)
+            return 1;
+
+        // delante es más lento: calcular si el nuevo lo alcanza antes
+        // de que delante salga del canal.
+        //
+        // Slots que le faltan a delante para salir:
+        int slots_restantes_delante = (nuevo->direccion == 0)
+            ? (c->largo - 1 - i)   // dir IZQ: le falta llegar al final
+            : i;                    // dir DER: le falta llegar al 0
+
+        // Ticks que tarda delante en salir:
+        // sale cuando acumula 'slots_restantes_delante' avances
+        // redondeando hacia arriba
+        int ticks_para_salir = (slots_restantes_delante + delante->velocidad - 1)
+                               / delante->velocidad;
+
+        // Posición del nuevo en ese tick (si entrara ahora):
+        int pos_nuevo_al_salir = nuevo->velocidad * ticks_para_salir;
+
+        // Posición de delante en ese tick (ya fuera del canal):
+        // Para verificar, nos basta con que en cada tick intermedio
+        // el nuevo no lo alcance. La condición simplificada:
+        // el nuevo nunca supera a delante si:
+        // vel_nuevo * t < d + vel_delante * t  para t = 1..ticks_para_salir
+        // el peor caso es t=1 (primer tick):
+        int pos_nuevo_t1  = nuevo->velocidad;      // desde pos 0
+        int pos_delante_t1 = d + delante->velocidad; // desde pos d
+
+        if (pos_nuevo_t1 >= pos_delante_t1) {
+            // Choca en el primer tick
+            return 0;
+        }
+
+        // Verificar tick a tick hasta que delante salga
+        int pos_n = 0;
+        int pos_d = d;
+        for (int t = 1; t <= ticks_para_salir; t++) {
+            pos_n += nuevo->velocidad;
+            pos_d += delante->velocidad;
+
+            // Si delante ya salió, el nuevo tiene vía libre
+            if (nuevo->direccion == 0 && pos_d >= c->largo) break;
+            if (nuevo->direccion == 1 && pos_d < 0)         break;
+
+            if (pos_n >= pos_d) return 0; // choque
+        }
+
+        return 1; // seguro
+    }
+
+    return 1; // canal vacío
+}
 
 // Metodo para verificar si puede entrar al canal
 int canal_puede_entrar(canal_t *c, barco_t *b)
@@ -152,16 +220,20 @@ int canal_puede_entrar(canal_t *c, barco_t *b)
         return (c->slots[entrada_real] == NULL);
     }
 
-    if (c->direccion_actual != b->direccion)
-        return 0;
+    if (c->direccion_actual != b->direccion){
+		return 0;
+	}
 
-    if (c->slots[entrada_real] != NULL)
+    if (c->slots[entrada_real] != NULL){
         return 0;
+	}
+	
+	if (!canal_entrada_segura(c, b)){
+	    return 0;
+	}
 
     return 1;
 }
-
-
 
 void canal_remover_barco(canal_t *c, barco_t *b)
 {

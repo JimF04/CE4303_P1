@@ -62,8 +62,8 @@ static void sjf_init(canal_t *canal, const config_t *cfg)
 static barco_t *sjf_next(void)
 {
     // Un solo barco a la vez
-    if (canal_global->ocupacion > 0)
-        return NULL;
+//    if (canal_global->ocupacion > 0)
+//        return NULL;
 
     int dir_canal = canal_global->direccion_actual;
 

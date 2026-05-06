@@ -26,6 +26,8 @@ int canal_insertar(canal_t *c, barco_t *b);
 
 void canal_mover_barco(canal_t *c, barco_t *b);
 
+int canal_entrada_segura(canal_t *c, barco_t *nuevo);
+
 int canal_puede_entrar(canal_t *c, barco_t *b);
 
 void canal_print(canal_t *c);

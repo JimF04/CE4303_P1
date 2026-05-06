@@ -119,7 +119,8 @@ void app_main(void)
 	    if (canal_insertar(&canal, nuevo)) {
 	        nuevo->state = RUNNING;
 	        if (nuevo->handle != NULL)
-	            xTaskNotifyGive(nuevo->handle);
+	            //xTaskNotifyGive(nuevo->handle);
+				printf("[MAIN] Barco %d insertado, se mueve en el siguiente tick\n", nuevo->id);
 	    } else {
 	        printf("[MAIN] WARN: insert falló para barco %d, re-encolando\n", nuevo->id);
 	        if (nuevo->id != -1 && nuevo->state != DONE)
@@ -134,12 +135,13 @@ void app_main(void)
 
         barco_t *b = barcos_get(i); //agarrar un barco
 
-        if (!b) continue; //que sea valido
-
-        if (b->pos_canal >= 0) {
-
-            xTaskNotifyGive(b->handle); //se notifica (ahorita no se usa)
-        }
+        if (!b) {
+			continue; //que sea valido
+		} 
+		
+		if (b->pos_canal >= 0 && b->handle != NULL) {
+		    xTaskNotifyGive(b->handle);
+		}
     }
 
     // =========================
