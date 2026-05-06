@@ -40,6 +40,7 @@ static inline barco_t *sq_deq(sched_queue_t *q)
     barco_t *b = q->data[q->head].barco;
     q->head = (q->head + 1) % MAX_Q;
     q->size--;
+
     return b;
 }
 
