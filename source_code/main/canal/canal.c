@@ -8,8 +8,6 @@ int pasa_buque = 0;
 extern scheduler_t *scheduler_global;
 
 
-
-
 // Setear parametros del canal con el config
 void canal_init(canal_t *c, const config_t *cfg)
 {
@@ -18,16 +16,18 @@ void canal_init(canal_t *c, const config_t *cfg)
     c->direccion_actual = -1; // canal sin dirección al inicio
 	
     c->ocupacion = 0;
+
+	for (int i = 0; i < c->largo; i++) {
+	    c->slots[i] = NULL;
+	    c->slot_mutex[i] = xSemaphoreCreateMutex(); // uno por slot
+	    configASSERT(c->slot_mutex[i] != NULL);
+	}
+
+	c->meta_mutex = xSemaphoreCreateMutex(); // para ocupacion y direccion_actual
+	configASSERT(c->meta_mutex != NULL);
 	
-    c->barcos_pasados = 0;
-
-    for (int i = 0; i < c->largo; i++)
-        c->slots[i] = NULL;
-
-    c->policy = flow_policy_create(cfg->canal.metodo_flujo, cfg);
-    c->policy->init(c->policy, c, cfg);
-    c->mutex = xSemaphoreCreateMutex();
-
+	c->policy = flow_policy_create(cfg->canal.metodo_flujo, cfg);
+	c->policy->init(c->policy, c, cfg);
 
 }
 
@@ -35,125 +35,100 @@ void canal_init(canal_t *c, const config_t *cfg)
 //recurso que usan los barcos para moverse
 void canal_mover_barco(canal_t *c, barco_t *b)
 {
+    if (pasa_buque) return;
+    if (b->pos_canal < 0) return;
 
-    xSemaphoreTake(c->mutex, portMAX_DELAY); // 🔒 LOCK
+    int pos_actual = b->pos_canal;
+    int dir = c->direccion_actual;
 
-    if(pasa_buque == 1){
-        xSemaphoreGive(c->mutex); // 🔓 UNLOCK
-        return;
+    //  1. Calcular destino
+    int destino = pos_actual;
+    for (int p = 0; p < b->velocidad; p++) {
+        int siguiente = (dir == 0) ? destino + 1 : destino - 1;
+        if (siguiente < 0 || siguiente >= c->largo) break;
+        if (c->slots[siguiente] != NULL) break;
+        destino = siguiente;
+    }
 
-    } 
+    if (destino == pos_actual) return; // nada que hacer
 
-    if (c->direccion_actual == 0) {
-        // izquierda -> derecha: iterar de derecha a izquierda
-        for (int i = c->largo - 2; i >= 0; i--) {
-            if (c->slots[i] == NULL) continue;
+    // 2. Tomar los dos slots (menor índice primero)
+    // Esto evita deadlock entre barcos moviéndose en sentidos opuestos
+    int lock_1 = (pos_actual < destino) ? pos_actual : destino;
+    int lock_2 = (pos_actual < destino) ? destino    : pos_actual;
 
-            barco_t *barco = c->slots[i];
-            int pasos = barco->velocidad;  // cuántos slots avanza este tick
-            int nueva_pos = i;
+    xSemaphoreTake(c->slot_mutex[lock_1], portMAX_DELAY);
+    xSemaphoreTake(c->slot_mutex[lock_2], portMAX_DELAY);
 
-            // Intentar avanzar 'pasos' slots
-            for (int p = 0; p < pasos; p++) {
-                int siguiente = nueva_pos + 1;
-                if (siguiente >= c->largo) break;        // llegó al borde
-                if (c->slots[siguiente] != NULL) break;  // bloqueado por otro barco
-                nueva_pos = siguiente;
-            }
+    // 3. Re-verificar destino 
+    if (c->slots[destino] == NULL) {
+        c->slots[destino]    = b;
+        c->slots[pos_actual] = NULL;
+        b->pos_canal         = destino;
+        b->posicion_guardada = destino;
+    }
 
-            if (nueva_pos != i) {
-                c->slots[nueva_pos] = barco;
-                c->slots[i] = NULL;
-                barco->posicion_guardada = nueva_pos;
-                barco->pos_canal = nueva_pos;
-            }
+    xSemaphoreGive(c->slot_mutex[lock_2]);
+    xSemaphoreGive(c->slot_mutex[lock_1]);
+
+    // 4. Verificar si llegó al borde
+    int borde = (dir == 0) ? c->largo - 1 : 0;
+    if (b->pos_canal == borde) {
+        xSemaphoreTake(c->slot_mutex[borde], portMAX_DELAY);
+
+        if (c->slots[borde] == b) {
+            c->slots[borde] = NULL;
+            b->state             = DONE;
+            b->pos_canal         = -1;
+            b->posicion_guardada = -1;
+
+            // meta_mutex para tocar ocupacion y direccion_actual
+            xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
+            c->ocupacion--;
+            if (c->ocupacion == 0)
+                c->direccion_actual = -1;
+            xSemaphoreGive(c->meta_mutex);
+
+            if (c->policy && c->policy->notify_salio)
+                c->policy->notify_salio(c->policy, b->direccion);
+
+            printf("[CANAL] Barco %d salió del canal\n", b->id);
         }
-    } else {
-        // derecha -> izquierda: iterar de izquierda a derecha
-        for (int i = 1; i < c->largo; i++) {
-            if (c->slots[i] == NULL) continue;
 
-            barco_t *barco = c->slots[i];
-            int pasos = barco->velocidad;
-            int nueva_pos = i;
-
-            for (int p = 0; p < pasos; p++) {
-                int siguiente = nueva_pos - 1;
-                if (siguiente < 0) break;                // llegó al borde
-                if (c->slots[siguiente] != NULL) break;  // bloqueado
-                nueva_pos = siguiente;
-            }
-
-            if (nueva_pos != i) {
-                c->slots[nueva_pos] = barco;
-                c->slots[i] = NULL;
-                barco->posicion_guardada = nueva_pos;
-                barco->pos_canal = nueva_pos;
-            }
-        }
+        xSemaphoreGive(c->slot_mutex[borde]);
     }
-
-    // Sacar barcos que llegaron al borde
-    int borde = (c->direccion_actual == 0 ? c->largo - 1 : 0);
-
-    if (c->slots[borde] != NULL) {
-        barco_t *saliente = c->slots[borde];
-        c->slots[borde] = NULL;
-        c->ocupacion--;
-
-        saliente->state = DONE;
-        saliente->posicion_guardada = -1;
-        saliente->pos_canal = -1;
-
-        if (c->policy && c->policy->notify_salio)
-            c->policy->notify_salio(c->policy, saliente->direccion);
-
-        printf("[CANAL] Barco %d salió del canal\n", saliente->id);
-    }
-
-    if (c->ocupacion == 0)
-        c->direccion_actual = -1;
-
-xSemaphoreGive(c->mutex); // 🔓 UNLOCK
-
-
-    }
-
+}
 
 int canal_insertar(canal_t *c, barco_t *b)
 {
-    xSemaphoreTake(c->mutex, portMAX_DELAY);
+    xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
 
     if (!canal_puede_entrar(c, b)) {
-        xSemaphoreGive(c->mutex);
+        xSemaphoreGive(c->meta_mutex);
         return 0;
     }
 
-    int pos;
-
-    if (b->posicion_guardada >= 0 &&
-        b->posicion_guardada < c->largo &&
-        c->slots[b->posicion_guardada] == NULL)
-    {
-        pos = b->posicion_guardada;
-    }
-    else
-    {
-        pos = (b->direccion == 0 ? 0 : c->largo - 1);
-    }
+    int pos = (b->posicion_guardada >= 0 &&
+               b->posicion_guardada < c->largo &&
+               c->slots[b->posicion_guardada] == NULL)
+              ? b->posicion_guardada
+              : (b->direccion == 0 ? 0 : c->largo - 1);
 
     if (c->ocupacion == 0)
         c->direccion_actual = b->direccion;
 
-    c->slots[pos] = b;
+    // Tomar el slot de entrada antes de escribir
+    xSemaphoreTake(c->slot_mutex[pos], portMAX_DELAY);
+    c->slots[pos]        = b;
     b->posicion_guardada = pos;
-    b->pos_canal = pos;
+    b->pos_canal         = pos;
     c->ocupacion++;
-    b->state = RUNNING;
+    b->state             = RUNNING;
+    xSemaphoreGive(c->slot_mutex[pos]);
 
-    printf("[CANAL] Barco %d entró al canal\n", b->id);
+    printf("[CANAL] Barco %d entró al canal (pos=%d)\n", b->id, pos);
 
-    xSemaphoreGive(c->mutex);
+    xSemaphoreGive(c->meta_mutex);
     return 1;
 }
 
@@ -191,15 +166,15 @@ int canal_puede_entrar(canal_t *c, barco_t *b)
 void canal_remover_barco(canal_t *c, barco_t *b)
 {
     
-    xSemaphoreTake(c->mutex, portMAX_DELAY);
+    xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
 
     if (!b) {
-        xSemaphoreGive(c->mutex);
+        xSemaphoreGive(c->meta_mutex);
         return;
     }
 
     if (b->pos_canal == -1) {
-        xSemaphoreGive(c->mutex);
+        xSemaphoreGive(c->meta_mutex);
         return;
     }
 
@@ -218,17 +193,17 @@ void canal_remover_barco(canal_t *c, barco_t *b)
     b->state = READY;
 
     printf("[CANAL] Barco %d removido\n", b->id);
-    xSemaphoreGive(c->mutex); // 🔓 UNLOCK
+    xSemaphoreGive(c->meta_mutex); // UNLOCK
 
 }
 
 
 
-void canal_viene_buque_carepicha(canal_t *c){
+void canal_viene_buque(canal_t *c){
 
     pasa_buque = 1;
 
-    xSemaphoreTake(c->mutex, portMAX_DELAY); // 🔒 LOCK
+    xSemaphoreTake(c->meta_mutex, portMAX_DELAY); // LOCK
 
     for (int i = 0; i < c->largo; i++) {
             if (c->slots[i] == NULL) continue;
@@ -247,7 +222,7 @@ void canal_viene_buque_carepicha(canal_t *c){
     }
 
 
-    xSemaphoreGive(c->mutex); // 🔓 UNL
+    xSemaphoreGive(c->meta_mutex); // UNL
 
     xTaskCreate(
     buque_task,     // función
@@ -303,7 +278,7 @@ void canal_print(canal_t *c)
 {
 
     if(pasa_buque) return;
-    xSemaphoreTake(c->mutex, portMAX_DELAY); // 🔒 LOCK
+    xSemaphoreTake(c->meta_mutex, portMAX_DELAY); // LOCK
 
 
     printf("\n========== TICK ==========\n");
@@ -318,7 +293,7 @@ void canal_print(canal_t *c)
     }
 
     printf("]\n");
-    xSemaphoreGive(c->mutex); // 🔓 UNLOCK
+    xSemaphoreGive(c->meta_mutex); // UNLOCK
 
 
 

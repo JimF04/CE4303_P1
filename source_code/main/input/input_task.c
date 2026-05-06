@@ -87,7 +87,7 @@ void input_task(void *arg)
         if (level_int == 1 && last_level_int == 0) {
 
             printf("ay viene el buque que miedo!!!!\n");
-            canal_viene_buque_carepicha(canal_global);
+            canal_viene_buque(canal_global);
 
         }
 

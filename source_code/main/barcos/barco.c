@@ -31,7 +31,6 @@ void barco_task(void *arg)
 
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY); //notificacion para que se despierte
 
-        // xSemaphoreTake(canal_global->mutex, portMAX_DELAY); //para que no se despiche todo, compartiendo el canal
 
         //solo mueve
         if (b->pos_canal >= 0) {
@@ -42,8 +41,6 @@ void barco_task(void *arg)
 		    b->state = READY;
 		
 		//print_tasks_real();
-
-        // xSemaphoreGive(canal_global->mutex); //soltamos el canal para que lo use otro barco
 
         if (b->state == DONE) { //si el barco termina:
             sched.notify_done(b); //se notifica que ya termino 

@@ -12,17 +12,10 @@ typedef struct flow_policy flow_policy_t;
 typedef struct{
 	int largo;
 	int direccion_actual; // 0 = izquierda, 1 = derecha
-	
-	// posiciones del canal (cada celda apunta a un barco o NULL)
-	barco_t *slots[MAX_LARGO]; 
-	
-	// cantidad de barcos dentro del canal
-	int ocupacion;
-	
-	int barcos_pasados;
-	int limite_w;
-
-	SemaphoreHandle_t mutex; 
+	barco_t *slots[MAX_LARGO]; // posiciones del canal 
+	SemaphoreHandle_t slot_mutex[MAX_LARGO]; // un mutex por slot
+	SemaphoreHandle_t meta_mutex; // protege solo: ocupacion, direccion_actual
+	int ocupacion; // cantidad de barcos dentro del canal
 
 	flow_policy_t *policy;
 }canal_t;
@@ -39,7 +32,7 @@ void canal_print(canal_t *c);
 
 void canal_remover_barco(canal_t *c, barco_t *b);
 
-void canal_viene_buque_carepicha(canal_t *c);
+void canal_viene_buque(canal_t *c);
 
 void buque_task(void *arg);
 
