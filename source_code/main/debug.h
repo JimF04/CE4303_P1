@@ -4,33 +4,18 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <stdlib.h>
-#include <stdio.h>
 
+// Metodo para imprimir procesos actuales
 void print_tasks_real()
 {
-    // Suspender el scheduler para lectura consistente
-    vTaskSuspendAll();
-
-    // Pedir cuántas tareas hay AHORA
     UBaseType_t num = uxTaskGetNumberOfTasks();
-
-    // Crear buffer seguro
     TaskStatus_t *tasks = malloc(num * sizeof(TaskStatus_t));
-    if (!tasks) {
-        xTaskResumeAll();
-        printf("ERROR: malloc\n");
-        return;
-    }
 
-    // Obtener el estado real de TODAS las tareas
-    UBaseType_t realNum = uxTaskGetSystemState(tasks, num, NULL);
-
-    // Reanudar scheduler
-    xTaskResumeAll();
+    uxTaskGetSystemState(tasks, num, NULL);
 
     printf("\n===== TASK REAL STATE =====\n");
 
-    for (int i = 0; i < realNum; i++) {
+    for (int i = 0; i < num; i++) {
 
         const char *state;
 
@@ -43,14 +28,15 @@ void print_tasks_real()
             default:         state = "UNKNOWN"; break;
         }
 
-		printf("%-12s | %-10s | Prio: %2u | StackFree: %4lu bytes\n",
-		       tasks[i].pcTaskName,
-		       state,
-		       (unsigned)tasks[i].uxCurrentPriority,
-		       (unsigned long)(tasks[i].usStackHighWaterMark * sizeof(StackType_t)));
+        printf("%-12s | %-10s | Prio: %d\n",
+               tasks[i].pcTaskName,
+               state,
+               tasks[i].uxCurrentPriority);
     }
 
     free(tasks);
 }
+
+
 
 #endif /* MAIN_DEBUG_H_ */

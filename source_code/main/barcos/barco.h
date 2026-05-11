@@ -38,6 +38,7 @@ barco_t* barcos_get(int index);
 int barcos_count();
 bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b);
 void asignar_velocidad(const config_t *cfg, barco_t *b);
+
 void asignar_prioridad(const config_t *cfg, barco_t *b);
 void eliminar_barco(int index);
 

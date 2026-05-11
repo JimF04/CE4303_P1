@@ -18,7 +18,6 @@ typedef struct{
 	int ocupacion; // cantidad de barcos dentro del canal
 
 	flow_policy_t *policy;
-
 }canal_t;
 
 void canal_init(canal_t *c, const config_t *cfg);

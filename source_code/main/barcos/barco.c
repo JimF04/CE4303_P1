@@ -8,12 +8,13 @@
 
 #include "scheduler/scheduler.h"
 
-//#include "../debug.h"
-#include "../events.h"
+#include "../debug.h"
 
 extern canal_t *canal_global;
 extern scheduler_t sched;
-extern QueueHandle_t event_queue;
+
+
+
 
 static barco_t barcos[8]; //lista de barcos
 static int barcos_total = 0; //cuantos barcos existen
@@ -43,8 +44,6 @@ void barco_task(void *arg)
 
         if (b->state == DONE) { //si el barco termina:
             sched.notify_done(b); //se notifica que ya termino 
-			canal_event_t evt = { .type = EVT_BARCO_SALIO, .data = b };
-			xQueueSend(event_queue, &evt, 0);
             vTaskDelete(NULL); //se elimina ese task
         }
     }
@@ -205,6 +204,10 @@ void eliminar_barco(int index)
 
     printf("Barco eliminado (slot %d liberado)\n", index);
 }
+
+
+
+
 
 
 // ========================

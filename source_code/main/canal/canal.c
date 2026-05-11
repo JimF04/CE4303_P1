@@ -269,6 +269,8 @@ void canal_remover_barco(canal_t *c, barco_t *b)
 
 }
 
+
+
 void canal_viene_buque(canal_t *c){
 
     pasa_buque = 1;

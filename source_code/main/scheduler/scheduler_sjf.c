@@ -2,7 +2,7 @@
 #include "sched_queue.h"
 #include <string.h>
 #include <stdio.h>
-#include "../events.h"
+
 
 
 /* ─── colas por dirección ─────────────────────────────── */
@@ -29,10 +29,6 @@ static void sjf_enqueue(barco_t *b)
     printf("[SJF] Barco %d (%s) encolado (orden=%d, dir=%s)\n",
            b->id, b->nombre, orden_global - 1,
            b->direccion == 0 ? "IZQ" : "DER");
-		   
-   	// Avisar al main_task que hay un barco esperando
-  	canal_event_t evt = { .type = EVT_BARCO_LISTO, .data = b };
-   	xQueueSend(event_queue, &evt, 0);
 }
 
 /* ─── init ───────────────────────────────────────────── */
