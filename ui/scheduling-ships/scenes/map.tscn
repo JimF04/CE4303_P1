@@ -1,3 +1,24 @@
-[gd_scene format=3 uid="uid://bjmfns2qatk4g"]
+[gd_scene format=3 uid="uid://cc1kkw3c7tngt"]
+
+[ext_resource type="PackedScene" uid="uid://ctaxxjk4w15tt" path="res://scenes/WaterPlane.tscn" id="1_4xfga"]
+[ext_resource type="Script" uid="uid://chrnqjnbf7rf5" path="res://scripts/map.gd" id="1_gldc4"]
+[ext_resource type="PackedScene" uid="uid://ctm8md0l7fke7" path="res://scenes/barco_normal.tscn" id="2_paxxb"]
 
 [node name="Map" type="Node3D" unique_id=2123450618]
+script = ExtResource("1_gldc4")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=344421675]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 14, 0)
+shadow_enabled = true
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=196066082]
+transform = Transform3D(-3.7855173e-08, -0.5, 0.8660254, -2.1855694e-08, 0.8660254, 0.5, -1, 0, -4.371139e-08, 8, 5, 0)
+
+[node name="Water" parent="." unique_id=119862006 instance=ExtResource("1_4xfga")]
+
+[node name="Barco_Normal" parent="." unique_id=1071077738 instance=ExtResource("2_paxxb")]
+mass = 10.0
+float_force = 1.0
+water_drag = 0.5
+
+[node name="Barcos" type="Node3D" parent="." unique_id=1007636791]
