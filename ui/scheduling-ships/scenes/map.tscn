@@ -1,26 +1,57 @@
 [gd_scene format=3 uid="uid://cc1kkw3c7tngt"]
 
-[ext_resource type="PackedScene" uid="uid://ctaxxjk4w15tt" path="res://scenes/WaterPlane.tscn" id="1_4xfga"]
 [ext_resource type="Script" uid="uid://chrnqjnbf7rf5" path="res://scripts/map.gd" id="1_gldc4"]
+[ext_resource type="PackedScene" uid="uid://dlokaew74j7f" path="res://scenes/barco.tscn" id="3_gldc4"]
 [ext_resource type="PackedScene" uid="uid://c1kn44agh0gd2" path="res://scenes/esp_32_connector.tscn" id="4_0cso3"]
-[ext_resource type="PackedScene" uid="uid://b530j88a8fco4" path="res://scenes/barco_patrulla.tscn" id="5_2lpho"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_gldc4"]
+sky_top_color = Color(0, 0, 0, 1)
+sky_horizon_color = Color(0, 0, 0, 1)
+ground_bottom_color = Color(0, 0, 0, 1)
+ground_horizon_color = Color(0, 0, 0, 1)
+
+[sub_resource type="Sky" id="Sky_0cso3"]
+sky_material = SubResource("ProceduralSkyMaterial_gldc4")
+
+[sub_resource type="Environment" id="Environment_2klcf"]
+background_mode = 2
+sky = SubResource("Sky_0cso3")
+tonemap_mode = 2
+glow_enabled = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_0cso3"]
+size = Vector2(100, 100)
+orientation = 1
+
+[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_gldc4"]
+data = PackedVector3Array(50, 0, 50, -50, 0, 50, 50, 0, -50, -50, 0, 50, -50, 0, -50, 50, 0, -50)
 
 [node name="Map" type="Node3D" unique_id=2123450618]
 script = ExtResource("1_gldc4")
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1837884644]
+environment = SubResource("Environment_2klcf")
+
 [node name="ESP32Connector" parent="." unique_id=1252989905 instance=ExtResource("4_0cso3")]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=344421675]
-transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 14, 0)
+transform = Transform3D(-0.70503724, -0.0011015236, -0.70916945, -0.7065156, 0.08753796, 0.7022628, 0.061305642, 0.9961606, -0.062495828, -21.76789, 15.695613, 0)
 shadow_enabled = true
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=196066082]
-transform = Transform3D(-4.371139e-08, 1, 0, 4.371139e-08, 1.9106855e-15, 1, 1, 4.371139e-08, -4.371139e-08, 0, 35, 0)
+transform = Transform3D(-4.371139e-08, 0.39073113, -0.92050487, 0, 0.92050487, 0.39073113, 1, 1.70794e-08, -4.0236547e-08, -18, 10, 0)
 
-[node name="Water" parent="." unique_id=119862006 instance=ExtResource("1_4xfga")]
+[node name="Plano" type="StaticBody3D" parent="." unique_id=1498481469]
+
+[node name="MeshInstance" type="MeshInstance3D" parent="Plano" unique_id=763981789]
+visible = false
+mesh = SubResource("QuadMesh_0cso3")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Plano" unique_id=476053295]
+shape = SubResource("ConcavePolygonShape3D_gldc4")
 
 [node name="Barcos" type="Node3D" parent="." unique_id=1007636791]
 
-[node name="BarcoPesquera" parent="." unique_id=2073200597 instance=ExtResource("5_2lpho")]
-transform = Transform3D(1, 0, 0, 0, 0.9998375, 0.018011004, 0, -0.018011004, 0.9998375, 0.825, 0.011349499, -0.236)
+[node name="Barco" parent="." unique_id=2073200597 instance=ExtResource("3_gldc4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1226311, 0)
 visible = false

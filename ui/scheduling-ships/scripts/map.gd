@@ -3,8 +3,9 @@ extends Node3D
 # ==============================================================================
 # CONFIGURACIÓN DEL CANAL
 # ==============================================================================
-@export var canal_largo_visual: float = 56.0        # más espacio entre slots
-@export var canal_origen: Vector3 = Vector3(0.0, 0.0, -28.0)
+@export var canal_largo_visual: float = 35.0        # más espacio entre slots
+@export var suelo_y: float = 0.0               # Poné aquí el Y del StaticBody
+@export var canal_origen: Vector3 = Vector3(0.0, 0.0, -17.5)
 
 @export var rotacion_derecha_deg: float   = 180.0
 @export var rotacion_izquierda_deg: float =   0.0
@@ -138,7 +139,7 @@ func _cancelar_tween(barco_id: int) -> void:
 # HELPERS
 # ==============================================================================
 func _posicion_de_slot(slot_idx: int, espaciado: float) -> Vector3:
-	return canal_origen + Vector3(0.0, 0.0, slot_idx * espaciado)
+	return Vector3(canal_origen.x, suelo_y, canal_origen.z + slot_idx * espaciado)
 
 func _crear_barco(barco_id: int, tipo: String, pos: Vector3, rot_y_rad: float) -> Node3D:
 	if not escenas_barco.has(tipo):
@@ -161,7 +162,22 @@ func _input(event):
 		KEY_T: _test_paquete_fake(0)
 		KEY_D: _test_paquete_fake(1)
 		KEY_M: _test_mover_barcos()
-
+		KEY_F: _test_canal()
+		
+func _test_canal():
+	_on_canal_actualizado({
+		"buque_act": -1.0, "dir": 0.0,
+		"ordenado_der": [3.0, 4.0, 5.0], "ordenado_izq": [],
+		"slots": [
+			{"id": 1.0, "tipo": "PAT"},
+			null, null, null, null, null,
+			{"id": 2.0, "tipo": "NOR"},
+			null, null, null,
+			null,
+			null, null, null,
+			{"id": 3.0, "tipo": "PES"},
+		]
+	})
 func _test_paquete_fake(dir_test: int):
 	_on_canal_actualizado({
 		"buque_act": -1.0, "dir": float(dir_test),
