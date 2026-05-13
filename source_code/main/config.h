@@ -32,9 +32,16 @@ typedef struct {
 } barcos_cfg_t;
 
 typedef struct {
+    char ssid[32];
+    char password[64];
+} wifi_cfg_t;
+
+
+typedef struct {
     canal_cfg_t canal;
     scheduler_cfg_t scheduler;
     barcos_cfg_t barcos;
+	wifi_cfg_t wifi;
 } config_t;
 
 // API pública

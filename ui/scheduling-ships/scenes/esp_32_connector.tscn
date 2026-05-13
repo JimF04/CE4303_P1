@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c1kn44agh0gd2"]
+
+[ext_resource type="Script" uid="uid://t72afxat1j7j" path="res://scripts/ESP32Connector.gd" id="1_8neis"]
+
+[node name="ESP32Connector" type="Node" unique_id=1252989905]
+script = ExtResource("1_8neis")

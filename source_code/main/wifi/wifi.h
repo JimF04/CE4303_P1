@@ -36,7 +36,7 @@ static esp_err_t ws_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-static void wifi_init(void) {
+static void wifi_init(const char* ssid, const char* password) {
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
@@ -52,16 +52,20 @@ static void wifi_init(void) {
 
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = "Vektor_71C8",
-            .password = "12345678"
+            // Usamos strncpy para evitar desbordamientos
+            .threshold.rssi = -127,
         },
     };
+    
+    // Copiamos los valores del config_t a la estructura de ESP-IDF
+    strncpy((char*)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
+    strncpy((char*)wifi_config.sta.password, password, sizeof(wifi_config.sta.password));
 
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     esp_wifi_start();
     esp_wifi_connect();
-    ESP_LOGI(W_TAG, "Conectando a WiFi...");
+    ESP_LOGI(W_TAG, "Conectando a SSID: %s", ssid);
 }
 
 static void start_ws_server(void) {

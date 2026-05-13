@@ -93,6 +93,14 @@ static int handler(void* user, const char* section,
 		    cfg->barcos.cantidad_derecha = i;     // ← contar aquí
 		}
     }
+	else if (strcmp(section, "WIFI") == 0) {
+        if (strcmp(name, "ssid") == 0) {
+            strncpy(cfg->wifi.ssid, value, sizeof(cfg->wifi.ssid));
+        }
+        else if (strcmp(name, "password") == 0) {
+            strncpy(cfg->wifi.password, value, sizeof(cfg->wifi.password));
+        }
+    }
 
     return 1;
 }

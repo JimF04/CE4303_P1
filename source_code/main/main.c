@@ -10,6 +10,8 @@
 #include "string.h"
 #include "custom_led.h"
 
+#include "wifi/wifi.h"
+#include "wifi/godot_proto.h"
 
 config_t config;
 canal_t *canal_global;
@@ -29,6 +31,9 @@ void app_main(void)
 	    printf("ERROR cargando config.ini\n");
 	    return;
 	}
+	
+	wifi_init(config.wifi.ssid, config.wifi.password);
+	start_ws_server();
 	
 	// =========================
 	// 2. CANAL
@@ -73,6 +78,7 @@ void app_main(void)
 
 
 
+
     // Crear tarea de input
     xTaskCreate(input_task, "input_task", 4096, NULL, 4, NULL);
 	
@@ -102,7 +108,7 @@ void app_main(void)
     }
 	
 	// =========================
-	// TICK DE POLÍTICA (ej: LETRERO)
+	// TICK DE POLÍTICA 
 	// =========================
 
 	if (canal.policy && canal.policy->tick)
@@ -149,7 +155,8 @@ void app_main(void)
     // =========================
 	led_render_canal(&canal, &sched);
     canal_print(&canal);
-
+	godot_export_state(&canal, &sched);
+	
     vTaskDelay(pdMS_TO_TICKS(500)); 
     }
 }
