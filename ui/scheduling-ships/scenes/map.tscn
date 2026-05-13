@@ -21,6 +21,5 @@ transform = Transform3D(-3.7855173e-08, -0.5, 0.8660254, -2.1855694e-08, 0.86602
 
 [node name="Barco_Normal" parent="." unique_id=1071077738 instance=ExtResource("2_paxxb")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8649982, 0)
-mass = 50.0
 
 [node name="Barcos" type="Node3D" parent="." unique_id=1007636791]

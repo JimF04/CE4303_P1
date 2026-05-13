@@ -11,7 +11,7 @@
 #include "custom_led.h"
 
 #include "wifi/wifi.h"
-#include "wifi/godot_proto.h"
+#include "wifi/godot.h"
 
 config_t config;
 canal_t *canal_global;
