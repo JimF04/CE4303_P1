@@ -2,53 +2,6 @@
 
 [ext_resource type="Shader" uid="uid://byu82emgyvf6n" path="res://shaders/Water.gdshader" id="1_243dc"]
 
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_243dc"]
-noise_type = 3
-fractal_type = 2
-
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_phhhr"]
-noise = SubResource("FastNoiseLite_243dc")
-seamless = true
-as_normal_map = true
-bump_strength = 1.5
-
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_phhhr"]
-noise_type = 3
-seed = 10
-fractal_type = 2
-
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_5w6nj"]
-noise = SubResource("FastNoiseLite_phhhr")
-seamless = true
-as_normal_map = true
-bump_strength = 1.5
-
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_5w6nj"]
-
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_wjwk1"]
-noise = SubResource("FastNoiseLite_5w6nj")
-seamless = true
-
 [resource]
 render_priority = 0
 shader = ExtResource("1_243dc")
-shader_parameter/albedo = Color(0, 0.32156864, 0.43137255, 1)
-shader_parameter/albedo2 = Color(0, 0.4745098, 0.7647059, 1)
-shader_parameter/metallic = 0.0
-shader_parameter/roughness = 0.02
-shader_parameter/texture_normal = SubResource("NoiseTexture2D_phhhr")
-shader_parameter/texture_normal2 = SubResource("NoiseTexture2D_5w6nj")
-shader_parameter/wave_direction = Vector2(2, 0)
-shader_parameter/wave_direction2 = Vector2(2, 0)
-shader_parameter/time_scale = 0.0
-shader_parameter/wave = SubResource("NoiseTexture2D_wjwk1")
-shader_parameter/noise_scale = 10.0
-shader_parameter/height_scale = 0.15
-shader_parameter/color_deep = Color(0.09387458, 0.3265959, 0.36708647, 1)
-shader_parameter/color_shallow = Color(0, 0.4745098, 0.7647059, 1)
-shader_parameter/beer_law = 2.0
-shader_parameter/depth_offset = -0.75
-shader_parameter/edge_scale = 0.0
-shader_parameter/near = 1.0
-shader_parameter/far = 100.0
-shader_parameter/edge_color = Color(0, 0, 0, 1)
