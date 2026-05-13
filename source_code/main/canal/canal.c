@@ -35,30 +35,52 @@ void canal_init(canal_t *c, const config_t *cfg)
 //recurso que usan los barcos para moverse
 void canal_mover_barco(canal_t *c, barco_t *b)
 {
-    if (pasa_buque) return;
-    if (b->pos_canal < 0) return;
+    if (pasa_buque || b->pos_canal < 0) return;
 
     int pos_actual = b->pos_canal;
     int dir = c->direccion_actual;
+    int paso = (dir == 0) ? 1 : -1;
+    
+    // 1. Intentar calcular si puede avanzar su VELOCIDAD completa
+    int puede_moverse_completo = 1;
+    int destino_final = pos_actual + (b->velocidad * paso);
 
-    //  1. Calcular destino
-    int destino = pos_actual;
-    for (int p = 0; p < b->velocidad; p++) {
-        int siguiente = (dir == 0) ? destino + 1 : destino - 1;
-        if (siguiente < 0 || siguiente >= c->largo) break;
-        if (c->slots[siguiente] != NULL) break;
-        destino = siguiente;
+    for (int p = 1; p <= b->velocidad; p++) {
+        int revisar = pos_actual + (p * paso);
+        
+        // Si el siguiente slot es la salida del canal, el camino está libre
+        if (revisar < 0 || revisar >= c->largo) break; 
+
+        if (c->slots[revisar] != NULL) {
+            puede_moverse_completo = 0; // Hay un obstáculo
+            break;
+        }
     }
 
-    if (destino == pos_actual) return; // nada que hacer
+    // Si no puede completar su movimiento de 3 (o su velocidad), se queda quieto
+    if (!puede_moverse_completo) return;
 
-    // 2. Tomar los dos slots (menor índice primero)
-    // Esto evita deadlock entre barcos moviéndose en sentidos opuestos
+    // Calcular destino real (limitado por los bordes del canal)
+    int destino = pos_actual + (b->velocidad * paso);
+    if (destino < 0) destino = 0;
+    if (destino >= c->largo) destino = c->largo - 1;
+
+    // 2. Bloqueo de slots y movimiento (Tu lógica de mutex actual es correcta)
     int lock_1 = (pos_actual < destino) ? pos_actual : destino;
     int lock_2 = (pos_actual < destino) ? destino    : pos_actual;
 
     xSemaphoreTake(c->slot_mutex[lock_1], portMAX_DELAY);
-    xSemaphoreTake(c->slot_mutex[lock_2], portMAX_DELAY);
+    if (lock_1 != lock_2) xSemaphoreTake(c->slot_mutex[lock_2], portMAX_DELAY);
+
+    if (c->slots[destino] == NULL) {
+        c->slots[destino]    = b;
+        c->slots[pos_actual] = NULL;
+        b->pos_canal         = destino;
+        b->posicion_guardada = destino;
+    }
+
+    if (lock_1 != lock_2) xSemaphoreGive(c->slot_mutex[lock_2]);
+    xSemaphoreGive(c->slot_mutex[lock_1]);
 
     // 3. Re-verificar destino 
     if (c->slots[destino] == NULL) {
@@ -132,105 +154,37 @@ int canal_insertar(canal_t *c, barco_t *b)
     return 1;
 }
 
-// Retorna la distancia mínima que debe haber entre la entrada
-// y el barco más cercano a ella, para que el nuevo no lo alcance.
-int canal_entrada_segura(canal_t *c, barco_t *nuevo)
-{
-    int entrada = (nuevo->direccion == 0) ? 0 : c->largo - 1;
-    int paso    = (nuevo->direccion == 0) ? 1 : -1;
-
-    // Buscar el barco más cercano a la entrada
-    for (int i = entrada; i >= 0 && i < c->largo; i += paso) {
-        if (c->slots[i] == NULL) continue;
-
-        barco_t *delante = c->slots[i];
-        int d = abs(i - entrada); // distancia actual entre entrada y delante
-
-        // Si delante es igual o más rápido: nunca lo alcanza
-        if (delante->velocidad >= nuevo->velocidad)
-            return 1;
-
-        // delante es más lento: calcular si el nuevo lo alcanza antes
-        // de que delante salga del canal.
-        //
-        // Slots que le faltan a delante para salir:
-        int slots_restantes_delante = (nuevo->direccion == 0)
-            ? (c->largo - 1 - i)   // dir IZQ: le falta llegar al final
-            : i;                    // dir DER: le falta llegar al 0
-
-        // Ticks que tarda delante en salir:
-        // sale cuando acumula 'slots_restantes_delante' avances
-        // redondeando hacia arriba
-        int ticks_para_salir = (slots_restantes_delante + delante->velocidad - 1)
-                               / delante->velocidad;
-
-        // Posición del nuevo en ese tick (si entrara ahora):
-        int pos_nuevo_al_salir = nuevo->velocidad * ticks_para_salir;
-
-        // Posición de delante en ese tick (ya fuera del canal):
-        // Para verificar, nos basta con que en cada tick intermedio
-        // el nuevo no lo alcance. La condición simplificada:
-        // el nuevo nunca supera a delante si:
-        // vel_nuevo * t < d + vel_delante * t  para t = 1..ticks_para_salir
-        // el peor caso es t=1 (primer tick):
-        int pos_nuevo_t1  = nuevo->velocidad;      // desde pos 0
-        int pos_delante_t1 = d + delante->velocidad; // desde pos d
-
-        if (pos_nuevo_t1 >= pos_delante_t1) {
-            // Choca en el primer tick
-            return 0;
-        }
-
-        // Verificar tick a tick hasta que delante salga
-        int pos_n = 0;
-        int pos_d = d;
-        for (int t = 1; t <= ticks_para_salir; t++) {
-            pos_n += nuevo->velocidad;
-            pos_d += delante->velocidad;
-
-            // Si delante ya salió, el nuevo tiene vía libre
-            if (nuevo->direccion == 0 && pos_d >= c->largo) break;
-            if (nuevo->direccion == 1 && pos_d < 0)         break;
-
-            if (pos_n >= pos_d) return 0; // choque
-        }
-
-        return 1; // seguro
-    }
-
-    return 1; // canal vacío
-}
 
 // Metodo para verificar si puede entrar al canal
 int canal_puede_entrar(canal_t *c, barco_t *b)
 {
     if (!b) return 0;
 
+    // Respetar la política de flujo 
     if (c->policy && !c->policy->allow(c->policy, c, b))
         return 0;
 
-    int entrada_real = (b->direccion == 0 ? 0 : c->largo - 1);
-
-    if (c->ocupacion == 0) {
-        if (b->posicion_guardada >= 0 &&
-            b->posicion_guardada < c->largo &&
-            c->slots[b->posicion_guardada] == NULL)
-            return 1;
-
-        return (c->slots[entrada_real] == NULL);
+    // Si el canal tiene barcos, deben ir en la misma dirección
+    if (c->ocupacion > 0 && c->direccion_actual != b->direccion) {
+        return 0;
     }
 
-    if (c->direccion_actual != b->direccion){
-		return 0;
-	}
+    int entrada_real = (b->direccion == 0 ? 0 : c->largo - 1);
+    int paso = (b->direccion == 0 ? 1 : -1);
 
-    if (c->slots[entrada_real] != NULL){
-        return 0;
-	}
-	
-	if (!canal_entrada_segura(c, b)){
-	    return 0;
-	}
+    // Verificar si los slots necesarios para su velocidad están libres
+    // Si es barco velocidad 3, verifica slots 0, 1 y 2.
+    for (int i = 0; i < b->velocidad; i++) {
+        int check_pos = entrada_real + (i * paso);
+        
+        // Si la posición se sale del canal, significa que el canal es muy corto, 
+        // pero el espacio físico está "libre" más allá.
+        if (check_pos < 0 || check_pos >= c->largo) break;
+
+        if (c->slots[check_pos] != NULL) {
+            return 0; // Hay alguien estorbando la entrada
+        }
+    }
 
     return 1;
 }
