@@ -3,14 +3,21 @@ extends Node3D
 # ==============================================================================
 # CONFIGURACIÓN DEL CANAL
 # ==============================================================================
-@export var canal_largo_visual: float = 35.0        # más espacio entre slots
-@export var suelo_y: float = 0.0               # Poné aquí el Y del StaticBody
+@export var canal_largo_visual: float = 35.0
+@export var suelo_y: float = 0.0
 @export var canal_origen: Vector3 = Vector3(0.0, 0.0, -17.5)
 
 @export var rotacion_derecha_deg: float   = 180.0
 @export var rotacion_izquierda_deg: float =   0.0
 
-@export var duracion_movimiento: float = 0.48
+# Debe coincidir con el intervalo del ESP32 / fake connector
+@export var intervalo_seg: float = 0.5
+
+# ==============================================================================
+# LISTAS DE ESPERA  (fila en X, perpendicular al canal)
+# ==============================================================================
+@export var lista_offset_x: float     = 5.0
+@export var lista_separacion_x: float = 3.0
 
 # ==============================================================================
 # ESCENAS DE BARCOS
@@ -24,10 +31,15 @@ var escenas_barco = {
 # ==============================================================================
 # ESTADO INTERNO
 # ==============================================================================
-var barcos_activos: Dictionary = {}   # id -> Node3D
-var tweens_activos: Dictionary = {}   # id -> Tween
-var rotacion_actual: float = deg_to_rad(0.0)  # última rotación aplicada
-var ultimo_estado: Dictionary = {}
+var barcos_activos: Dictionary = {}   # bid -> Node3D
+var tweens_activos: Dictionary = {}   # bid -> Tween
+var tipos_conocidos: Dictionary = {}  # bid -> String
+
+var rotacion_actual: float = deg_to_rad(0.0)
+
+# Buffer de un tick
+var frame_pendiente: Dictionary = {}
+var hay_frame_pendiente: bool = false
 
 @onready var contenedor_barcos: Node3D = $Barcos
 @onready var conector: Node = $ESP32Connector
@@ -49,18 +61,48 @@ func _conectar_señales() -> void:
 	print("Señal conectada.")
 
 # ==============================================================================
-# CALLBACK PRINCIPAL
+# CALLBACK — lag de un tick
+# Al llegar un frame nuevo, animamos el frame anterior (ya conocemos el destino
+# exacto) con exactamente intervalo_seg de duración. Así el tween siempre
+# termina justo cuando llega el siguiente frame.
 # ==============================================================================
 func _on_canal_actualizado(datos: Dictionary) -> void:
-	ultimo_estado = datos
-	_sincronizar_barcos(datos)
+	if not hay_frame_pendiente:
+		# Primer frame: solo registramos tipos y lo guardamos, nada más
+		_registrar_tipos(datos)
+		frame_pendiente = datos
+		hay_frame_pendiente = true
+		return
+
+	# Animamos hacia el frame pendiente con duración = intervalo exacto
+	_sincronizar_barcos(frame_pendiente, intervalo_seg)
+
+	# El frame recién llegado pasa a ser el pendiente
+	_registrar_tipos(datos)
+	frame_pendiente = datos
+
+# ==============================================================================
+# REGISTRAR TIPOS — separado para poder hacerlo también en el primer frame
+# ==============================================================================
+func _registrar_tipos(datos: Dictionary) -> void:
+	for s in datos.get("slots", []):
+		if s != null:
+			tipos_conocidos[int(s["id"])] = s["tipo"]
+	for entry in datos.get("ordenado_izq", []):
+		if entry is Dictionary:
+			tipos_conocidos[int(entry["id"])] = entry["tipo"]
+	for entry in datos.get("ordenado_der", []):
+		if entry is Dictionary:
+			tipos_conocidos[int(entry["id"])] = entry["tipo"]
 
 # ==============================================================================
 # SINCRONIZACIÓN
 # ==============================================================================
-func _sincronizar_barcos(datos: Dictionary) -> void:
-	var slots: Array = datos.get("slots", [])
-	var num_slots: int = slots.size()
+func _sincronizar_barcos(datos: Dictionary, dur: float) -> void:
+	var slots: Array     = datos.get("slots", [])
+	var lista_izq: Array = datos.get("ordenado_izq", [])
+	var lista_der: Array = datos.get("ordenado_der", [])
+	var num_slots: int   = slots.size()
 	if num_slots == 0:
 		return
 
@@ -74,58 +116,107 @@ func _sincronizar_barcos(datos: Dictionary) -> void:
 
 	var espaciado: float = canal_largo_visual / max(num_slots - 1, 1)
 
-	# -- 1. Qué IDs deben existir --
-	var ids_esperados: Dictionary = {}
+	# ── 1. Sets de IDs esperados ─────────────────────────────────────────────
+	var ids_en_canal: Dictionary = {}
 	for i in range(num_slots):
-		var slot = slots[i]
-		if slot == null:
-			continue
-		var barco_id: int = int(slot["id"])
-		ids_esperados[barco_id] = {"tipo": slot["tipo"], "slot": i}
+		if slots[i] != null:
+			ids_en_canal[int(slots[i]["id"])] = i
 
-	# -- 2. Eliminar los que salieron --
+	var ids_en_lista_izq: Dictionary = {}
+	for i in range(lista_izq.size()):
+		var entry = lista_izq[i]
+		var bid: int = int(entry["id"]) if entry is Dictionary else int(entry)
+		ids_en_lista_izq[bid] = i
+
+	var ids_en_lista_der: Dictionary = {}
+	for i in range(lista_der.size()):
+		var entry = lista_der[i]
+		var bid: int = int(entry["id"]) if entry is Dictionary else int(entry)
+		ids_en_lista_der[bid] = i
+
+	# ── 2. Eliminar desaparecidos ────────────────────────────────────────────
 	var ids_a_eliminar: Array = []
-	for id in barcos_activos:
-		if not ids_esperados.has(id):
-			ids_a_eliminar.append(id)
-	for id in ids_a_eliminar:
-		_cancelar_tween(id)
-		barcos_activos[id].queue_free()
-		barcos_activos.erase(id)
+	for bid in barcos_activos:
+		if not ids_en_canal.has(bid) \
+		and not ids_en_lista_izq.has(bid) \
+		and not ids_en_lista_der.has(bid):
+			ids_a_eliminar.append(bid)
+	for bid in ids_a_eliminar:
+		_cancelar_tween(bid)
+		barcos_activos[bid].queue_free()
+		barcos_activos.erase(bid)
+		tipos_conocidos.erase(bid)
 
-	# -- 3. Crear o animar --
-	for barco_id in ids_esperados:
-		var info = ids_esperados[barco_id]
-		var pos_destino: Vector3 = _posicion_de_slot(info["slot"], espaciado)
 
-		if barcos_activos.has(barco_id):
-			_animar_movimiento(barco_id, pos_destino, nueva_rot_rad, dir_cambio)
-		else:
-			var nodo = _crear_barco(barco_id, info["tipo"], pos_destino, nueva_rot_rad)
+	# ── 3. Lista izquierda ───────────────────────────────────────────────────
+	var rot_izq := deg_to_rad(rotacion_izquierda_deg)
+	for bid in ids_en_lista_izq:
+		var orden_original: int = ids_en_lista_izq[bid]
+		var pos := _posicion_lista_izq(orden_original)
+		if not barcos_activos.has(bid):
+			var nodo := _crear_barco(bid, tipos_conocidos.get(bid, "NOR"), pos, rot_izq)
 			if nodo:
-				barcos_activos[barco_id] = nodo
+				barcos_activos[bid] = nodo
+		else:
+			_animar_movimiento_dur(bid, pos, rot_izq, false, dur)
+
+	# ── 4. Lista derecha ─────────────────────────────────────────────────────
+	var rot_der := deg_to_rad(rotacion_derecha_deg)
+	for bid in ids_en_lista_der:
+		var pos := _posicion_lista_der(ids_en_lista_der[bid])
+		if not barcos_activos.has(bid):
+			var nodo := _crear_barco(bid, tipos_conocidos.get(bid, "NOR"), pos, rot_der)
+			if nodo:
+				barcos_activos[bid] = nodo
+		else:
+			_animar_movimiento_dur(bid, pos, rot_der, false, dur)
+
+	# ── 5. Canal ─────────────────────────────────────────────────────────────
+	for bid in ids_en_canal:
+		var pos_destino := _posicion_de_slot(ids_en_canal[bid], espaciado)
+		if barcos_activos.has(bid):
+			# Anima desde donde está (lista o slot anterior) al slot destino.
+			# Duración = intervalo_seg → llega exacto cuando llega el próximo frame.
+			_animar_movimiento_dur(bid, pos_destino, nueva_rot_rad, dir_cambio, dur)
+		else:
+			var tipo: String = tipos_conocidos.get(bid, "NOR")
+			var nodo := _crear_barco(bid, tipo, pos_destino, nueva_rot_rad)
+			if nodo:
+				barcos_activos[bid] = nodo
+
+# ==============================================================================
+# POSICIONES DE LISTA
+# ==============================================================================
+func _posicion_lista_izq(orden: int) -> Vector3:
+	return Vector3(
+		canal_origen.x + lista_offset_x + orden * lista_separacion_x,
+		suelo_y,
+		canal_origen.z
+	)
+
+func _posicion_lista_der(orden: int) -> Vector3:
+	return Vector3(
+		canal_origen.x + lista_offset_x + orden * lista_separacion_x,
+		suelo_y,
+		canal_origen.z + canal_largo_visual
+	)
 
 # ==============================================================================
 # TWEEN
 # ==============================================================================
-func _animar_movimiento(barco_id: int, pos_destino: Vector3, rot_y_rad: float, rotar: bool) -> void:
+func _animar_movimiento_dur(barco_id: int, pos_destino: Vector3, rot_y_rad: float, rotar: bool, dur: float) -> void:
 	var nodo: Node3D = barcos_activos[barco_id]
 	_cancelar_tween(barco_id)
-
-	var t = create_tween()
-
+	var t := create_tween()
 	if rotar:
-		# Solo rotamos si la dirección del canal cambió
 		t.set_parallel(true)
-		t.tween_property(nodo, "position", pos_destino, duracion_movimiento)\
+		t.tween_property(nodo, "position", pos_destino, dur) \
 			.set_trans(Tween.TRANS_LINEAR)
-		t.tween_property(nodo, "rotation:y", rot_y_rad, duracion_movimiento * 0.4)\
+		t.tween_property(nodo, "rotation:y", rot_y_rad, dur * 0.4) \
 			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 	else:
-		# Solo movimiento, sin tocar la rotación
-		t.tween_property(nodo, "position", pos_destino, duracion_movimiento)\
+		t.tween_property(nodo, "position", pos_destino, dur) \
 			.set_trans(Tween.TRANS_LINEAR)
-
 	tweens_activos[barco_id] = t
 
 func _cancelar_tween(barco_id: int) -> void:
@@ -163,25 +254,35 @@ func _input(event):
 		KEY_D: _test_paquete_fake(1)
 		KEY_M: _test_mover_barcos()
 		KEY_F: _test_canal()
-		
+
 func _test_canal():
 	_on_canal_actualizado({
 		"buque_act": -1.0, "dir": 0.0,
-		"ordenado_der": [3.0, 4.0, 5.0], "ordenado_izq": [],
+		"ordenado_izq": [],
+		"ordenado_der": [
+			{"id": 3.0, "tipo": "PAT"},
+			{"id": 4.0, "tipo": "PES"},
+			{"id": 5.0, "tipo": "NOR"},
+		],
 		"slots": [
 			{"id": 1.0, "tipo": "PAT"},
 			null, null, null, null, null,
 			{"id": 2.0, "tipo": "NOR"},
-			null, null, null,
-			null,
+			null, null, null, null,
 			null, null, null,
 			{"id": 3.0, "tipo": "PES"},
 		]
 	})
+
 func _test_paquete_fake(dir_test: int):
 	_on_canal_actualizado({
 		"buque_act": -1.0, "dir": float(dir_test),
-		"ordenado_der": [3.0, 4.0, 5.0], "ordenado_izq": [],
+		"ordenado_izq": [],
+		"ordenado_der": [
+			{"id": 3.0, "tipo": "PAT"},
+			{"id": 4.0, "tipo": "PES"},
+			{"id": 5.0, "tipo": "NOR"},
+		],
 		"slots": [
 			null, null, null, null, null, null, null, null,
 			{"id": 2.0, "tipo": "PES"},
@@ -195,7 +296,12 @@ func _test_paquete_fake(dir_test: int):
 func _test_mover_barcos():
 	_on_canal_actualizado({
 		"buque_act": -1.0, "dir": 0.0,
-		"ordenado_der": [3.0, 4.0, 5.0], "ordenado_izq": [],
+		"ordenado_izq": [],
+		"ordenado_der": [
+			{"id": 3.0, "tipo": "PAT"},
+			{"id": 4.0, "tipo": "PES"},
+			{"id": 5.0, "tipo": "NOR"},
+		],
 		"slots": [
 			null, null, null, null, null, null,
 			{"id": 2.0, "tipo": "PES"},

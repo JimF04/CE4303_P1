@@ -17,7 +17,7 @@ mass = 2.0
 script = ExtResource("1_odpos")
 
 [node name="BoatRowLarge" type="MeshInstance3D" parent="." unique_id=1973534556]
-transform = Transform3D(1, 0, 0, 0, 0.692, 0, 0, 0, 0.928, 0, 0, 0.04691744)
+transform = Transform3D(0.6237225, 0, 0, 0, 0.346, 0, 0, 0, 0.6942106, 0, 0, 0.04691744)
 mesh = ExtResource("2_nq1hx")
 surface_material_override/0 = SubResource("StandardMaterial3D_k2r1s")
 surface_material_override/2 = SubResource("StandardMaterial3D_ikfjo")

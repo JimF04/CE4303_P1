@@ -70,19 +70,25 @@ void godot_export_state(const canal_t *c, const scheduler_t *sched) {
     }
     pos += sprintf(json_buf + pos, "],");
 
-    // 3. Lista ordenada Izquierda
-    pos += sprintf(json_buf + pos, "\"ordenado_izq\":[");
-    for (int i = 0; i < n_izq; i++) {
-        pos += sprintf(json_buf + pos, "%d%s", cola_izq[i]->id, (i < n_izq - 1) ? "," : "");
-    }
-    pos += sprintf(json_buf + pos, "],");
+	// 3. Lista ordenada Izquierda
+	pos += sprintf(json_buf + pos, "\"ordenado_izq\":[");
+	for (int i = 0; i < n_izq; i++) {
+	    pos += sprintf(json_buf + pos, "{\"id\":%d,\"tipo\":\"%s\"}%s",
+	                   cola_izq[i]->id,
+	                   cola_izq[i]->tipo,
+	                   (i < n_izq - 1) ? "," : "");
+	}
+	pos += sprintf(json_buf + pos, "],");
 
-    // 4. Lista ordenada Derecha
-    pos += sprintf(json_buf + pos, "\"ordenado_der\":[");
-    for (int i = 0; i < n_der; i++) {
-        pos += sprintf(json_buf + pos, "%d%s", cola_der[i]->id, (i < n_der - 1) ? "," : "");
-    }
-    pos += sprintf(json_buf + pos, "]}");
+	// 4. Lista ordenada Derecha
+	pos += sprintf(json_buf + pos, "\"ordenado_der\":[");
+	for (int i = 0; i < n_der; i++) {
+	    pos += sprintf(json_buf + pos, "{\"id\":%d,\"tipo\":\"%s\"}%s",
+	                   cola_der[i]->id,
+	                   cola_der[i]->tipo,
+	                   (i < n_der - 1) ? "," : "");
+	}
+	pos += sprintf(json_buf + pos, "]}");
 
     send_to_all_ws(json_buf);
     free(json_buf);
