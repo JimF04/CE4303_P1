@@ -33,6 +33,8 @@ script = ExtResource("1_gldc4")
 environment = SubResource("Environment_2klcf")
 
 [node name="ESP32Connector" parent="." unique_id=1252989905 instance=ExtResource("4_0cso3")]
+url = null
+retry_time = null
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=344421675]
 transform = Transform3D(-0.70503724, -0.0011015236, -0.70916945, -0.7065156, 0.08753796, 0.7022628, 0.061305642, 0.9961606, -0.062495828, -21.76789, 15.695613, 0)
@@ -54,3 +56,4 @@ shape = SubResource("ConcavePolygonShape3D_gldc4")
 
 [node name="Barco" parent="." unique_id=2073200597 instance=ExtResource("3_gldc4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1226311, 0)
+visible = false
