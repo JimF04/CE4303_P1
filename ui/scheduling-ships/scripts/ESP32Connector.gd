@@ -1,83 +1,84 @@
 extends Node
+
+# ==============================================================================
+# ESP32 FAKE — emite canal_actualizado con frames hardcodeados
+# Reemplazá el nodo ESP32Connector con este script para pruebas sin hardware.
+# ==============================================================================
+
 signal canal_actualizado(datos: Dictionary)
 
-var url := "ws://192.168.4.1/ws"
-@export var retry_time = 2.0
-var socket: WebSocketPeer = null
-var last_state = WebSocketPeer.STATE_CLOSED
-var reconnection_timer = 0.0
-var _permisos_solicitados := false
-var _iniciado := false  #  evita que _process intente reconectar antes de tiempo
+@export var intervalo: float = 0.5   # segundos entre frames
+@export var loop: bool = true        # volver al inicio al terminar
 
+var _frames: Array[Dictionary] = []
+var _idx: int = 0
+var _timer: float = 0.0
+var _activo: bool = true
+
+# ==============================================================================
+# FRAMES — pegá acá tus líneas JSON (una por elemento)
+# ==============================================================================
+const FRAMES_RAW: Array = [
+	{"dir":0.0,"buque_act":1.0,"slots":[null,{"id":0.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[1.0,2.0],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":1.0,"slots":[null,null,{"id":0.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[1.0,2.0],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":1.0,"slots":[null,null,null,{"id":0.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[1.0,2.0],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":2.0,"slots":[null,null,null,{"id":1.0,"tipo":"PAT"},{"id":0.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[2.0],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,{"id":2.0,"tipo":"PES"},{"id":1.0,"tipo":"PAT"},null,{"id":0.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,{"id":2.0,"tipo":"PES"},{"id":1.0,"tipo":"PAT"},null,null,{"id":0.0,"tipo":"NOR"},null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,null,null,{"id":2.0,"tipo":"PES"},null,{"id":1.0,"tipo":"PAT"},{"id":0.0,"tipo":"NOR"},null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,null,null,{"id":2.0,"tipo":"PES"},null,{"id":1.0,"tipo":"PAT"},null,{"id":0.0,"tipo":"NOR"},null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,null,null,{"id":2.0,"tipo":"PES"},null,{"id":1.0,"tipo":"PAT"},null,null,{"id":0.0,"tipo":"NOR"},null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,{"id":2.0,"tipo":"PES"},null,null,{"id":1.0,"tipo":"PAT"},{"id":0.0,"tipo":"NOR"},null,null,null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,{"id":2.0,"tipo":"PES"},{"id":1.0,"tipo":"PAT"},null,{"id":0.0,"tipo":"NOR"},null,null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,{"id":2.0,"tipo":"PES"},{"id":1.0,"tipo":"PAT"},null,null,{"id":0.0,"tipo":"NOR"},null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,null,null,{"id":2.0,"tipo":"PES"},null,{"id":1.0,"tipo":"PAT"},{"id":0.0,"tipo":"NOR"},null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":0.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,null,null,null,null,{"id":2.0,"tipo":"PES"},null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":-1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[3.0,4.0,5.0]},
+	{"dir":1.0,"buque_act":4.0,"slots":[null,null,null,null,null,null,null,null,null,null,null,{"id":3.0,"tipo":"PAT"},null,null,null],"ordenado_izq":[],"ordenado_der":[4.0,5.0]},
+	{"dir":1.0,"buque_act":5.0,"slots":[null,null,null,null,null,null,null,null,{"id":3.0,"tipo":"PAT"},null,null,null,{"id":4.0,"tipo":"PES"},null,null],"ordenado_izq":[],"ordenado_der":[5.0]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,{"id":3.0,"tipo":"PAT"},null,null,null,null,{"id":4.0,"tipo":"PES"},null,null,{"id":5.0,"tipo":"NOR"},null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,{"id":3.0,"tipo":"PAT"},null,null,null,null,null,{"id":4.0,"tipo":"PES"},null,null,null,{"id":5.0,"tipo":"NOR"},null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,{"id":4.0,"tipo":"PES"},null,null,null,null,{"id":5.0,"tipo":"NOR"},null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,null,null,{"id":4.0,"tipo":"PES"},null,null,null,null,null,{"id":5.0,"tipo":"NOR"},null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,{"id":4.0,"tipo":"PES"},null,null,null,null,null,null,{"id":5.0,"tipo":"NOR"},null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,{"id":5.0,"tipo":"NOR"},null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,{"id":5.0,"tipo":"NOR"},null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,{"id":5.0,"tipo":"NOR"},null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,{"id":5.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,null,null,{"id":5.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,null,{"id":5.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,null,{"id":5.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":1.0,"buque_act":-1.0,"slots":[null,{"id":5.0,"tipo":"NOR"},null,null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":-1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":-1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":-1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":-1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":-1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+	{"dir":-1.0,"buque_act":-1.0,"slots":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ordenado_izq":[],"ordenado_der":[]},
+]
+
+# ==============================================================================
+# READY / PROCESS
+# ==============================================================================
 func _ready() -> void:
-	DebugConsole.log_propio("--- Iniciando Conector ESP32 ---")
-	DebugConsole.log_propio("Plataforma: " + OS.get_name())
-	if OS.get_name() == "Android":
-		DebugConsole.log_propio("Solicitando permisos...")
-		OS.request_permissions()
-		# En Android los permisos y el stack de red necesitan más tiempo
-		await get_tree().create_timer(4.0).timeout
-		DebugConsole.log_propio("Esperando terminada, conectando...")
-	_iniciado = true
-	_connect_socket()
-
-func _connect_socket():
-	if socket != null:
-		socket.close()
-		socket = null
-
-	socket = WebSocketPeer.new()
-	var target_url := "ws://192.168.4.1/ws"
-	DebugConsole.log_propio("connect_to_url -> " + target_url)
-	var err = socket.connect_to_url(target_url)
-	DebugConsole.log_propio("Resultado: %d" % err)
-
-	if err != OK:
-		DebugConsole.log_error("Error al conectar: %d — reintentando..." % err)
-		socket = null
-		return
-	last_state = WebSocketPeer.STATE_CONNECTING
+	_frames.assign(FRAMES_RAW)
+	print("[FakeESP32] %d frames cargados. Intervalo: %.2fs" % [_frames.size(), intervalo])
 
 func _process(delta: float) -> void:
-	if not _iniciado:
+	if not _activo or _frames.is_empty():
 		return
-	if socket == null:
-		reconnection_timer += delta
-		if reconnection_timer >= retry_time:
-			reconnection_timer = 0.0
-			_connect_socket()
-		return
-	socket.poll()
-	var state = socket.get_ready_state()
-	if state != last_state:
-		_on_state_changed(state)
-		last_state = state
-	match state:
-		WebSocketPeer.STATE_OPEN:
-			reconnection_timer = 0.0
-			while socket.get_available_packet_count() > 0:
-				var packet = socket.get_packet()
-				if socket.was_string_packet():
-					var json_string = packet.get_string_from_utf8()
-					if json_string.length() > 0:
-						_procesar_paquete(json_string)
-		WebSocketPeer.STATE_CLOSED:
-			socket = null
-			reconnection_timer = 0.0
-			DebugConsole.log_error("Socket cerrado. Reconectando en %.1fs..." % retry_time)
+	_timer += delta
+	if _timer >= intervalo:
+		_timer = 0.0
+		_emitir_frame()
 
-func _on_state_changed(new_state):
-	match new_state:
-		WebSocketPeer.STATE_CONNECTING: DebugConsole.log_propio("WebSocket: Conectando...")
-		WebSocketPeer.STATE_OPEN:       DebugConsole.log_ok("WebSocket: ¡Conectado!")
-		WebSocketPeer.STATE_CLOSING:    DebugConsole.log_error("WebSocket: Cerrando...")
-		WebSocketPeer.STATE_CLOSED:     DebugConsole.log_error("WebSocket: Cerrado.")
-
-func _procesar_paquete(json_string: String):
-	var json = JSON.new()
-	var error = json.parse(json_string)
-	if error == OK:
-		#DebugConsole.log_data(json_string.left(120))
-		canal_actualizado.emit(json.data)
-	else:
-		DebugConsole.log_error("PARSEO: " + json.get_error_message())
+func _emitir_frame() -> void:
+	canal_actualizado.emit(_frames[_idx])
+	print("[FakeESP32] frame %d / %d" % [_idx, _frames.size() - 1])
+	_idx += 1
+	if _idx >= _frames.size():
+		if loop:
+			_idx = 0
+		else:
+			_activo = false
+			print("[FakeESP32] secuencia terminada.")

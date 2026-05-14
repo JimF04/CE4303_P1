@@ -14,7 +14,7 @@ mass = 4.0
 script = ExtResource("1_atcy8")
 
 [node name="BoatFishingSmall" type="MeshInstance3D" parent="." unique_id=2097301020]
-transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0.00017371774, 0, 0.010243893)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.00017371774, 0, 0.010243893)
 mesh = ExtResource("2_atcy8")
 surface_material_override/0 = SubResource("StandardMaterial3D_r03ps")
 

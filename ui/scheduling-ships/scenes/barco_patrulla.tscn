@@ -5,6 +5,8 @@
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_odpos"]
 albedo_color = Color(1, 0, 0, 1)
+emission = Color(1, 0, 0, 1)
+emission_energy_multiplier = 0.0
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_5d7pa"]
 size = Vector3(1.0443726, 0.6395874, 1.9445648)
@@ -12,10 +14,8 @@ size = Vector3(1.0443726, 0.6395874, 1.9445648)
 [node name="BarcoPesquera" type="RigidBody3D" unique_id=2073200597]
 mass = 2.0
 script = ExtResource("1_lcfhp")
-float_force = 5.0
 
 [node name="BoatModel" type="MeshInstance3D" parent="." unique_id=1529814677]
-transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
 mesh = ExtResource("2_8psip")
 surface_material_override/0 = SubResource("StandardMaterial3D_odpos")
 
