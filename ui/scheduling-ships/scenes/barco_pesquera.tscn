@@ -2,10 +2,17 @@
 
 [ext_resource type="Script" uid="uid://cpujs003561di" path="res://scripts/barco_normal.gd" id="1_atcy8"]
 [ext_resource type="ArrayMesh" uid="uid://dltetn3mbrgvy" path="res://models/boat-fishing-small.obj" id="2_atcy8"]
-[ext_resource type="PackedScene" uid="uid://lir8i8p7tdw7" path="res://scenes/explosion.tscn" id="3_r03ps"]
+
+[sub_resource type="Gradient" id="Gradient_atcy8"]
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_r03ps"]
+gradient = SubResource("Gradient_atcy8")
+fill_from = Vector2(0.6965812, 0.25641027)
+fill_to = Vector2(0.5555556, 0.4957265)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_r03ps"]
-albedo_color = Color(0, 1, 0, 1)
+albedo_color = Color(0.38039216, 0.79607844, 0.54509807, 1)
+albedo_texture = SubResource("GradientTexture2D_r03ps")
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_5d7pa"]
 size = Vector3(0.9109955, 0.91819763, 1.9445648)
@@ -23,6 +30,3 @@ surface_material_override/0 = SubResource("StandardMaterial3D_r03ps")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=233411694]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.001411438, 0.45153046, -0.011192322)
 shape = SubResource("BoxShape3D_5d7pa")
-
-[node name="Explosion" parent="." unique_id=1527954870 instance=ExtResource("3_r03ps")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5480614, 0.75504804, 0)
