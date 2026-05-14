@@ -6,7 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define BARCOS_MAX 8
+#define BARCOS_MAX 15
 
 typedef enum {
     READY,

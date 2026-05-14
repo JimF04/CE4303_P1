@@ -11,7 +11,7 @@ extern canal_t *canal_global;
 extern scheduler_t sched;
 
 
-static barco_t barcos[8]; //lista de barcos
+static barco_t barcos[BARCOS_MAX]; //lista de barcos
 static int barcos_total = 0; //cuantos barcos existen
 static int id_global = 0; //id para los barcos
 
@@ -53,21 +53,21 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
     int capacidad_logica = cfg->barcos.cantidad * 2; 
 
 
-    if (capacidad_logica > BARCOS_MAX) {
-        printf("ERROR: config.ini solicita %d barcos (máximo permitido = %d)\n",
-               capacidad_logica, BARCOS_MAX);
-        return false;
-    }
+    // if (capacidad_logica > BARCOS_MAX) {
+    //     printf("ERROR: config.ini solicita %d barcos (máximo permitido = %d)\n",
+    //            capacidad_logica, BARCOS_MAX);
+    //     return false;
+    // }
 
-    if (barcos_total >= capacidad_logica) {
-        printf("Límite del config alcanzado (%d barcos)\n", capacidad_logica);
-        return false;
-    }
+    // if (barcos_total >= capacidad_logica) {
+    //     printf("Límite del config alcanzado (%d barcos)\n", capacidad_logica);
+    //     return false;
+    // }
 
-    if (barcos_total >= BARCOS_MAX) {
-        printf("Límite físico alcanzado (%d barcos)\n", BARCOS_MAX);
-        return false;
-    }
+    // if (barcos_total >= BARCOS_MAX) {
+    //     printf("Límite físico alcanzado (%d barcos)\n", BARCOS_MAX);
+    //     return false;
+    // }
 
     barco_t *b = &barcos[barcos_total]; //se guardan los barcos que hay    
 
