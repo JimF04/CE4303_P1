@@ -169,4 +169,26 @@ static inline barco_t *sq_peek_barco_max(sched_queue_t *q)
     return q->data[max_idx].barco;
 }
 
+
+
+
+static inline barco_t *sq_peek_barco_min(sched_queue_t *q)
+{
+    if (q->size == 0) return NULL;
+
+    int min_idx = q->head;
+    int min_val = q->data[q->head].valor;
+
+    for (int i = 1; i < q->size; i++) {
+        int idx = (q->head + i) % MAX_Q;
+
+        if (q->data[idx].valor < min_val) {
+            min_val = q->data[idx].valor;
+            min_idx = idx;
+        }
+    }
+
+    return q->data[min_idx].barco;
+}
+
 #endif /* MAIN_SCHEDULER_SCHED_QUEUE_H_ */

@@ -3,11 +3,8 @@
 #include "barco.h"
 #include <math.h>
 #include <canal/canal.h>
-
 #include <stdbool.h>
-
 #include "scheduler/scheduler.h"
-
 #include "../debug.h"
 
 extern canal_t *canal_global;
@@ -95,7 +92,7 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
     char dir = (direccion_b == 0) ? 'L' : 'R';
     snprintf(b->nombre, sizeof(b->nombre), "%s_%c_%d", tipo_b, dir, b->id);
 
-    xTaskCreate(barco_task,b->nombre,4096,b,5,&b->handle); //se crea el task, este se empieza a ejecutar automaticamente
+    xTaskCreate(barco_task,b->nombre, 4096, b, 5, &b->handle); //se crea el task, este se empieza a ejecutar automaticamente
 
     id_global++;
     barcos_total++;
@@ -104,6 +101,7 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 
     return true; 
 }
+
 
 // Metodo para asignar la velocidad a los barcos
 void asignar_velocidad(const config_t *cfg, barco_t *b)
@@ -145,30 +143,24 @@ void asignar_prioridad(const config_t *cfg, barco_t *b)
 }
 
 
-
 // Metodo para asignar el deadline a los barcos
 void asignar_deadline(const config_t *cfg, barco_t *b)
 {
     int base = cfg->barcos.prioridad_base;
 
     if (strcmp(b->tipo, "NOR") == 0) {
-        b->deadLine = base + 2;
+        b->deadline = base ;
     } 
-    else if (strcmp(b->tipo "PES") == 0) {
-        b->deadLine = base + 1;
+    else if (strcmp(b->tipo, "PES") == 0) {
+        b->deadline = base + 1;
     } 
     else if (strcmp(b->tipo, "PAT") == 0) {
-        b->deadLine = base;
+        b->deadline = base + 2 ;
     } 
     else {
-        b->deadLine = base; // fallback
+        b->deadline = base; // fallback
     }
 }
-
-
-
-
-
 
 
 // Metodo para crear barcos por default (depende del config)
@@ -229,8 +221,6 @@ void eliminar_barco(int index)
 
     printf("Barco eliminado (slot %d liberado)\n", index);
 }
-
-
 
 
 

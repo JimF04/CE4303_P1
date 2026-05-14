@@ -3,15 +3,23 @@
 #include <string.h>
 #include <stdio.h>
 
+
+
 /* ─── colas por dirección ─────────────────────────────── */
 static sched_queue_t q_left, q_right;
 
 /* ─── estado del canal ────────────────────────────────── */
 static int canal_dir;   // dirección activa (-1 = libre)
 static int en_canal;    // barcos físicamente dentro
+
 static int orden_global;   // contador global de llegada
 
 extern canal_t *canal_global;
+
+static barco_t *actual = NULL;
+extern canal_t *canal_global;
+
+
 
 /* ─── enqueue público ─────────────────────────────────── */
 static void edf_enqueue(barco_t *b)
@@ -20,7 +28,7 @@ static void edf_enqueue(barco_t *b)
     b->state = READY;
 
     sched_queue_t *q = (b->direccion == 0) ? &q_left : &q_right;
-    sq_enq(q, b, b->deadline);   // valor = orden de llegada
+    sq_enq(q, b, b->velocidad);   // valor = valocidad
 
     printf("[EDF] Barco %d (%s) encolado (orden=%d, dir=%s)\n",
            b->id, b->nombre, orden_global - 1,
@@ -53,64 +61,118 @@ static void edf_init(canal_t *canal, const config_t *cfg)
     }
 }
 
+//prepara al barco para quitarlo del canal
+
+void preempt_edf(barco_t *b) 
+{
+    if (!b) return; //que sea un barco valido
+
+    // xSemaphoreTake(canal_global->mutex, portMAX_DELAY); //protege el canal
+
+    canal_remover_barco(canal_global, b); //llama a quitar el barco
+
+    // xSemaphoreGive(canal_global->mutex); //lo libera
+
+    b->state = READY; //lo devuelve a ready
+    actual = NULL;
+    en_canal = 0;
+
+    // lo vuelve a meter a la cola 
+    edf_enqueue(b);
+
+    printf("[SCHED] Barco %d preempted\n", b->id);
+}
+
+
 /* ─── next ───────────────────────────────────────────── */
 static barco_t *edf_next(void)
 {
-    // Un solo barco a la vez
-//    if (canal_global->ocupacion > 0)
-//        return NULL;
-
     int dir_canal = canal_global->direccion_actual;
 
+    // prioridad mínima en cada cola (menor = más importante)
     int p_izq = sq_peek_min(&q_left);
     int p_der = sq_peek_min(&q_right);
 
     if (p_izq == -1 && p_der == -1)
         return NULL;
 
-    // Orden de preferencia según dirección del canal
-    int primera, segunda;
+        //----------------------------------------
+    // Elegir mejor dirección
+    //----------------------------------------
+    int mejor_dir = -1;
+    int mejor_p   = -1;
+
     if (dir_canal == 0) {
-        primera = 0; segunda = -1;  // solo IZQ
-    } else if (dir_canal == 1) {
-        primera = 1; segunda = -1;  // solo DER
-    } else {
-        // Canal libre -> mayor deadline global; empate -> izquierda
-        if (p_izq >= p_der) { primera = 0; segunda = 1; }
-        else                 { primera = 1; segunda = 0; }
+        mejor_dir = (p_izq != -1) ? 0 : -1;
+        mejor_p   = p_izq;
+    }
+    else if (dir_canal == 1) {
+        mejor_dir = (p_der != -1) ? 1 : -1;
+        mejor_p   = p_der;
+    }
+    else {
+        // menor prioridad gana
+        if (p_izq <= p_der) {
+            mejor_dir = 0;
+            mejor_p   = p_izq;
+        } else {
+            mejor_dir = 1;
+            mejor_p   = p_der;
+        }
     }
 
-    // Intentar en orden de preferencia
-    int dirs[2] = { primera, segunda };
-    for (int i = 0; i < 2; i++) {
-        int d = dirs[i];
-        if (d == -1) break;
+    if (mejor_dir == -1)
+        return NULL;
 
-        sched_queue_t *q = (d == 0) ? &q_left : &q_right;
-        int pmax = (d == 0) ? p_izq : p_der;
-        if (pmax == -1) continue;
+    sched_queue_t *q =
+        (mejor_dir == 0) ? &q_left : &q_right;
 
-        // Peek sin desencolar todavía
-        barco_t *candidato = sq_peek_barco_max(q);
-        if (!candidato || candidato->id == -1 || candidato->state == DONE) {
-            sq_deq_max(q);  // limpiar entrada inválida
-            continue;
-        }
+    barco_t *candidato = sq_peek_barco_min(q);
 
-        // Consultar al canal si puede entrar ANTES de desencolar
-        if (!canal_puede_entrar(canal_global, candidato))
-            continue;  // bloqueado por política, probar el otro lado
+    if (!candidato)
+        return NULL;
 
-        // Aceptado
-        barco_t *b = sq_deq_max(q);
+    if (!canal_puede_entrar(canal_global, candidato))
+        return NULL;
+
+    // Si hay espacio, entra directo
+
+    if (!canal_lleno(canal_global)) {
+        barco_t *b = sq_deq_min(q);
+
         b->state = READY;
-        printf("[EDF] -> Barco %d (%s) autorizado (edf=%d, dir=%s)\n",
-               b->id, b->nombre, b->deadline,
-               b->direccion == 0 ? "IZQ" : "DER");
+
+        printf("[EDF] -> entra %d (prio=%d)\n",
+               b->id, b->prioridad);
+
         return b;
     }
 
-    return NULL;  // ninguna dirección disponible este tick
+    // Canal lleno: buscar el peor
+
+    barco_t *peor = canal_barco_max(canal_global, 1);
+
+    if (!peor)
+        return NULL;
+    // Si candidato tiene MENOR prioridad, reemplaza
+    if (candidato->prioridad < peor->prioridad) {
+
+        printf("[EDF] Preempt %d (prio=%d) por %d (prio=%d)\n",
+               peor->id,
+               peor->prioridad,
+               candidato->id,
+               candidato->prioridad);
+
+        preempt_edf(peor);
+
+        barco_t *b = sq_deq_min(q);
+
+        b->state = READY;
+
+        return b;
+    }
+
+    return NULL;
 }
 
 /* ─── notify_done ─────────────────────────────────────── */
@@ -120,11 +182,13 @@ static void edf_notify_done(barco_t *b)
 
     b->state = DONE;
 
-    if (en_canal > 0)
-        en_canal--;
+    if (actual == b) {
+        actual = NULL;
+    }
 
-    printf("[EDF] Barco %d (%s) salió. en_canal=%d\n",
-           b->id, b->nombre, en_canal);
+    if (en_canal > 0)
+
+    printf("[EDF] Barco %d salió\n", b->id);
 }
 
 /* ─── get_queue (para LEDs) ───────────────────────────── */
@@ -133,7 +197,7 @@ static int edf_get_queue(int direccion, barco_t **out, int max)
     return sq_get_queue(direccion == 0 ? &q_left : &q_right, out, max);
 }
 
-/* ─── release — no-op en edf ────────────────────────── */
+/* ─── release — no-op en edf ─────────────────────────── */
 static void edf_release(void) { }
 
 /* ─── export ──────────────────────────────────────────── */

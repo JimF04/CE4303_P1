@@ -38,6 +38,10 @@ void canal_viene_buque(canal_t *c);
 
 void buque_task(void *arg);
 
+int canal_lleno(canal_t *c);
+
+barco_t *canal_barco_min(canal_t *c, int criterio);
+barco_t *canal_barco_max(canal_t *c, int criterio);
 
 
 

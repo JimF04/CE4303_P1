@@ -23,7 +23,7 @@ typedef struct {
     int pos_canal;
     int velocidad;
     int prioridad;
-    int deadLine;
+    int deadline;
 
 	char nombre[32];
     TaskHandle_t handle; // referencia al task del barco
@@ -42,7 +42,7 @@ void asignar_velocidad(const config_t *cfg, barco_t *b);
 
 void asignar_prioridad(const config_t *cfg, barco_t *b);
 void eliminar_barco(int index);
-
+void asignar_deadline(const config_t *cfg, barco_t *b);
 
 
 #endif /* MAIN_BARCOS_BARCO_H_ */

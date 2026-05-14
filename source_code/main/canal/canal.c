@@ -32,6 +32,108 @@ void canal_init(canal_t *c, const config_t *cfg)
 }
 
 
+int canal_lleno(canal_t *c)
+{
+    if (!c) return 1;
+
+    xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
+
+    int lleno = (c->ocupacion >= c->largo);
+
+    xSemaphoreGive(c->meta_mutex);
+
+    return lleno;
+}
+
+barco_t *canal_barco_min(canal_t *c, int criterio)
+{
+    if (!c) return NULL;
+
+    xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
+
+    barco_t *min = NULL;
+    int min_val = 0;
+
+    for (int i = 0; i < c->largo; i++) {
+        barco_t *b = c->slots[i];
+        if (!b) continue;
+
+        int val = 0;
+
+        switch (criterio) {
+            case 0:
+                val = b->velocidad;
+                break;
+
+            case 1:
+                val = b->prioridad;
+                break;
+
+            case 2:
+                val = b->id;
+                break;
+
+            default:
+                val = b->velocidad;
+                break;
+        }
+
+        if (min == NULL || val < min_val) {
+            min = b;
+            min_val = val;
+        }
+    }
+
+    xSemaphoreGive(c->meta_mutex);
+
+    return min;
+}
+
+
+barco_t *canal_barco_max(canal_t *c, int criterio)
+{
+    if (!c) return NULL;
+
+    xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
+
+    barco_t *max = NULL;
+    int max_val = 0;
+
+    for (int i = 0; i < c->largo; i++) {
+        barco_t *b = c->slots[i];
+        if (!b) continue;
+
+        int val = 0;
+
+        switch (criterio) {
+            case 0:
+                val = b->velocidad;
+                break;
+
+            case 1:
+                val = b->deadline;
+                break;
+
+            case 2:
+                val = b->id;
+                break;
+
+            default:
+                val = b->velocidad;
+                break;
+        }
+
+        if (max == NULL || val > max_val) {
+            max = b;
+            max_val = val;
+        }
+    }
+
+    xSemaphoreGive(c->meta_mutex);
+
+    return max;
+}
+
 //recurso que usan los barcos para moverse
 void canal_mover_barco(canal_t *c, barco_t *b)
 {
@@ -325,4 +427,3 @@ void canal_print(canal_t *c)
 
 
 }
-
