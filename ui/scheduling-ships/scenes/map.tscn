@@ -3,7 +3,8 @@
 [ext_resource type="Script" uid="uid://chrnqjnbf7rf5" path="res://scripts/map.gd" id="1_gldc4"]
 [ext_resource type="PackedScene" uid="uid://dlokaew74j7f" path="res://scenes/barco.tscn" id="3_gldc4"]
 [ext_resource type="PackedScene" uid="uid://c1kn44agh0gd2" path="res://scenes/esp_32_connector.tscn" id="4_0cso3"]
-[ext_resource type="PackedScene" uid="uid://ojreg8g07b1o" path="res://scenes/buque.tscn" id="4_2klcf"]
+[ext_resource type="ArrayMesh" uid="uid://cjrqogbvawk5o" path="res://models/arrow-standing.obj" id="4_2klcf"]
+[ext_resource type="PackedScene" uid="uid://ojreg8g07b1o" path="res://scenes/buque.tscn" id="5_2klcf"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_gldc4"]
 sky_top_color = Color(0, 0, 0, 1)
@@ -55,13 +56,21 @@ shape = SubResource("ConcavePolygonShape3D_gldc4")
 
 [node name="Barco" parent="." unique_id=2073200597 instance=ExtResource("3_gldc4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1226311, 0)
+visible = false
 
 [node name="Barco" parent="Barco" unique_id=997475381 instance=ExtResource("3_gldc4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.033973813, -17.711052)
+visible = false
 
 [node name="Barco" parent="Barco/Barco" unique_id=786900469 instance=ExtResource("3_gldc4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.033973813, 34.456627)
+visible = false
 
-[node name="BarcoPesquera" parent="." unique_id=1772131686 instance=ExtResource("4_2klcf")]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
-mass = 131.587
+[node name="ArrowStanding" type="MeshInstance3D" parent="." unique_id=1690296689]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.419527, 14.082768, 13.976948)
+visible = false
+mesh = ExtResource("4_2klcf")
+
+[node name="Buque" parent="." unique_id=299814713 instance=ExtResource("5_2klcf")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 35.83, 0, 0)
+visible = false

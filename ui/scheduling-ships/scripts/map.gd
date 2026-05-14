@@ -148,7 +148,7 @@ func _sincronizar_barcos(datos: Dictionary, dur: float) -> void:
 		tipos_conocidos.erase(bid)
 
 
-	# ── 3. Lista izquierda ───────────────────────────────────────────────────
+# ── 3. Lista izquierda ───────────────────────────────────────────────────
 	var rot_izq := deg_to_rad(rotacion_izquierda_deg)
 	for bid in ids_en_lista_izq:
 		var orden_original: int = ids_en_lista_izq[bid]
@@ -158,7 +158,13 @@ func _sincronizar_barcos(datos: Dictionary, dur: float) -> void:
 			if nodo:
 				barcos_activos[bid] = nodo
 		else:
-			_animar_movimiento_dur(bid, pos, rot_izq, false, dur)
+			# Si venía del canal -> teletransporte, si estaba en lista -> tween
+			if ids_en_canal.has(bid):
+				_cancelar_tween(bid)
+				barcos_activos[bid].position = pos
+				barcos_activos[bid].rotation.y = rot_izq
+			else:
+				_animar_movimiento_dur(bid, pos, rot_izq, false, dur)
 
 	# ── 4. Lista derecha ─────────────────────────────────────────────────────
 	var rot_der := deg_to_rad(rotacion_derecha_deg)
@@ -169,7 +175,13 @@ func _sincronizar_barcos(datos: Dictionary, dur: float) -> void:
 			if nodo:
 				barcos_activos[bid] = nodo
 		else:
-			_animar_movimiento_dur(bid, pos, rot_der, false, dur)
+			# Si venía del canal -> teletransporte, si estaba en lista -> tween
+			if ids_en_canal.has(bid):
+				_cancelar_tween(bid)
+				barcos_activos[bid].position = pos
+				barcos_activos[bid].rotation.y = rot_der
+			else:
+				_animar_movimiento_dur(bid, pos, rot_der, false, dur)
 
 	# ── 5. Canal ─────────────────────────────────────────────────────────────
 	for bid in ids_en_canal:
