@@ -4,7 +4,7 @@
 #include <string.h>
 #include "scheduler/scheduler.h"
 
-//int pasa_buque = 0;
+
 extern scheduler_t *scheduler_global;
 
 
@@ -262,6 +262,8 @@ int canal_insertar(canal_t *c, barco_t *b)
 int canal_puede_entrar(canal_t *c, barco_t *b)
 {
     if (!b) return 0;
+	
+	if(c->pasa_buque) return 0;
 
     // Respetar la política de flujo 
     if (c->policy && !c->policy->allow(c->policy, c, b))

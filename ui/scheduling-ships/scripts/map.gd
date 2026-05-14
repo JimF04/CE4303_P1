@@ -188,30 +188,6 @@ func _mover_buque_y_chequear(x_actual: float) -> void:
 		if dist < BUQUE_RADIO_CHOQUE:
 			bids_chocados.append(bid)
 
-	for bid in bids_chocados:
-		_explotar_barco(bid)
-
-func _explotar_barco(bid: int) -> void:
-	if not barcos_activos.has(bid):
-		return
-	var nodo: Node3D = barcos_activos[bid]
-	_cancelar_tween(bid)
-
-	# Explotar en la posición del barco — duración acotada a intervalo_seg
-	if explosion and is_instance_valid(explosion):
-		explosion.global_position = nodo.global_position
-		explosion.explode()
-
-	# Ocultar el barco inmediatamente — no esperar la explosión
-	nodo.visible = false
-	barcos_activos.erase(bid)
-	tipos_conocidos.erase(bid)
-
-	# Limpiar el nodo después de intervalo_seg (un tick) para no acumular basura
-	await get_tree().create_timer(intervalo_seg).timeout
-	if is_instance_valid(nodo):
-		nodo.queue_free()
-
 func _detener_buque() -> void:
 	_buque_activo = false
 	_buque_bid_actual = -1
