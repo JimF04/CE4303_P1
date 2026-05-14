@@ -23,10 +23,11 @@ mass = 2.0
 script = ExtResource("1_jxjwu")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=233411694]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.011506081, 1.7468796, -0.025892496)
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0.011506081, 1.7468796, -0.025892496)
 shape = SubResource("BoxShape3D_5d7pa")
 
 [node name="ShipCargoA" type="MeshInstance3D" parent="." unique_id=417826752]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
 mesh = ExtResource("4_0tajx")
 surface_material_override/0 = SubResource("StandardMaterial3D_nkrlb")
 surface_material_override/2 = SubResource("StandardMaterial3D_8ad73")

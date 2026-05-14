@@ -4,7 +4,7 @@
 #include <string.h>
 #include "scheduler/scheduler.h"
 
-int pasa_buque = 0;
+//int pasa_buque = 0;
 extern scheduler_t *scheduler_global;
 
 
@@ -29,6 +29,7 @@ void canal_init(canal_t *c, const config_t *cfg)
 	c->policy = flow_policy_create(cfg->canal.metodo_flujo, cfg);
 	c->policy->init(c->policy, c, cfg);
 
+	c->pasa_buque = 0;
 }
 
 
@@ -137,7 +138,7 @@ barco_t *canal_barco_max(canal_t *c, int criterio)
 //recurso que usan los barcos para moverse
 void canal_mover_barco(canal_t *c, barco_t *b)
 {
-    if (pasa_buque || b->pos_canal < 0) return;
+    if (c->pasa_buque || b->pos_canal < 0) return;
 
     int pos_actual = b->pos_canal;
     int dir = c->direccion_actual;
@@ -329,7 +330,7 @@ void canal_remover_barco(canal_t *c, barco_t *b)
 
 void canal_viene_buque(canal_t *c){
 
-    pasa_buque = 1;
+    c->pasa_buque = 1;
 
     xSemaphoreTake(c->meta_mutex, portMAX_DELAY); // LOCK
 
@@ -356,7 +357,7 @@ void canal_viene_buque(canal_t *c){
     buque_task,     // función
     "buque_task",   // nombre
     4096,           // stack
-    NULL,           // parámetro
+    (void *)c,           // parámetro
     5,              // prioridad
     NULL            // handle (opcional)
 
@@ -364,7 +365,9 @@ void canal_viene_buque(canal_t *c){
 
 }
 
-void buque_task(void *arg){
+void buque_task(void *pvParameters) {
+	
+	canal_t *c = (canal_t *) pvParameters;
 
     const int col = 10;     // columna fija
     const int inicio = 0;
@@ -396,7 +399,7 @@ void buque_task(void *arg){
 
     printf("\033[?25h"); // mostrar cursor otra vez
 
-    pasa_buque = 0;
+    c->pasa_buque = 0;
 
     vTaskDelete(NULL);
 }
@@ -405,7 +408,7 @@ void buque_task(void *arg){
 void canal_print(canal_t *c)
 {
 
-    if(pasa_buque) return;
+    if(c->pasa_buque) return;
     xSemaphoreTake(c->meta_mutex, portMAX_DELAY); // LOCK
 
 

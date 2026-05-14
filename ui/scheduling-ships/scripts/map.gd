@@ -51,12 +51,31 @@ var _mat_izq: StandardMaterial3D
 var _mat_der: StandardMaterial3D
 
 # ==============================================================================
+# BUQUE
+# ==============================================================================
+@onready var buque: RigidBody3D = $Buque
+
+var _buque_activo := false
+var _buque_tween: Tween = null
+var _buque_bid_actual: int = -1  # el bid que está siendo transportado
+
+const BUQUE_X_INICIO  :=  100.0
+const BUQUE_X_FIN     := -30.0
+const BUQUE_RADIO_CHOQUE := 4.0  # distancia en X para detectar colisión con barco
+
+func _setup_buque() -> void:
+	if buque:
+		buque.visible = false
+		buque.position.x = BUQUE_X_INICIO
+		
+# ==============================================================================
 # READY
 # ==============================================================================
 func _ready() -> void:
 	HudOverlay.salir_solicitado.connect(_iniciar_salida)
 	call_deferred("_conectar_señales")
 	_setup_materiales_flecha()
+	_setup_buque()
 
 var _dir_actual: float = -99.0
 
@@ -93,6 +112,7 @@ func _on_canal_actualizado(datos: Dictionary) -> void:
 		return
 		
 	_actualizar_flecha(datos)
+	_actualizar_buque(datos)
 		
 	if not hay_frame_pendiente:
 		# Primer frame: solo registramos tipos y lo guardamos, nada más
@@ -107,6 +127,100 @@ func _on_canal_actualizado(datos: Dictionary) -> void:
 	# El frame recién llegado pasa a ser el pendiente
 	_registrar_tipos(datos)
 	frame_pendiente = datos
+	
+# ==============================================================================
+# ACTUALIZAR BUQUE
+# ==============================================================================
+
+func _actualizar_buque(datos: Dictionary) -> void:
+	if buque == null:
+		return
+
+	var buque_act: int = int(datos.get("buque_act", 0.0))
+
+	# 0 o -1 = ningún buque activo
+	if buque_act != 1:
+		if _buque_activo:
+			_detener_buque()
+		return
+
+	# Ya está en curso → no reiniciar
+	if _buque_activo:
+		return
+
+	_buque_bid_actual = buque_act
+	_iniciar_animacion_buque()
+
+func _iniciar_animacion_buque() -> void:
+	if _buque_tween and _buque_tween.is_valid():
+		_buque_tween.kill()
+
+	# Parar barcos del canal — matar sus tweens para que no se muevan
+	for bid in tweens_activos:
+		var t = tweens_activos[bid]
+		if t and t.is_valid():
+			t.kill()
+	tweens_activos.clear()
+
+	# Posicionar y mostrar el buque
+	buque.position.x = BUQUE_X_INICIO
+	buque.visible = true
+
+	# Duración: 24 frames × intervalo_seg
+	var duracion := 24.0 * intervalo_seg
+
+	_buque_activo = true
+	_buque_tween = create_tween()
+	_buque_tween.tween_method(_mover_buque_y_chequear, BUQUE_X_INICIO, BUQUE_X_FIN, duracion)
+	_buque_tween.tween_callback(_detener_buque)
+
+func _mover_buque_y_chequear(x_actual: float) -> void:
+	if buque == null:
+		return
+	buque.position.x = x_actual
+
+	var bids_chocados: Array = []
+	for bid in barcos_activos:
+		var nodo: Node3D = barcos_activos[bid]
+		if not is_instance_valid(nodo):
+			continue
+		var dist: float = abs(nodo.global_position.x - x_actual)
+		if dist < BUQUE_RADIO_CHOQUE:
+			bids_chocados.append(bid)
+
+	for bid in bids_chocados:
+		_explotar_barco(bid)
+
+func _explotar_barco(bid: int) -> void:
+	if not barcos_activos.has(bid):
+		return
+	var nodo: Node3D = barcos_activos[bid]
+	_cancelar_tween(bid)
+
+	# Explotar en la posición del barco — duración acotada a intervalo_seg
+	if explosion and is_instance_valid(explosion):
+		explosion.global_position = nodo.global_position
+		explosion.explode()
+
+	# Ocultar el barco inmediatamente — no esperar la explosión
+	nodo.visible = false
+	barcos_activos.erase(bid)
+	tipos_conocidos.erase(bid)
+
+	# Limpiar el nodo después de intervalo_seg (un tick) para no acumular basura
+	await get_tree().create_timer(intervalo_seg).timeout
+	if is_instance_valid(nodo):
+		nodo.queue_free()
+
+func _detener_buque() -> void:
+	_buque_activo = false
+	_buque_bid_actual = -1
+	if buque:
+		buque.visible = false
+		buque.position.x = BUQUE_X_INICIO
+	if _buque_tween and _buque_tween.is_valid():
+		_buque_tween.kill()
+	_buque_tween = null
 	
 # ==============================================================================
 # ACTUALIZAR FLECHA

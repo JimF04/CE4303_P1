@@ -16,6 +16,8 @@ typedef struct{
 	SemaphoreHandle_t slot_mutex[MAX_LARGO]; // un mutex por slot
 	SemaphoreHandle_t meta_mutex; // protege solo: ocupacion, direccion_actual
 	int ocupacion; // cantidad de barcos dentro del canal
+	
+	int pasa_buque;
 
 	flow_policy_t *policy;
 }canal_t;
@@ -36,7 +38,7 @@ void canal_remover_barco(canal_t *c, barco_t *b);
 
 void canal_viene_buque(canal_t *c);
 
-void buque_task(void *arg);
+void buque_task(void *pvParameters);
 
 int canal_lleno(canal_t *c);
 

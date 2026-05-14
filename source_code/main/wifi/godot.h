@@ -44,10 +44,6 @@ void godot_export_state(const canal_t *c, const scheduler_t *sched) {
     int n_izq = sched->get_queue(0, cola_izq, 10); // 0 = Izquierda
     int n_der = sched->get_queue(1, cola_der, 10); // 1 = Derecha
     
-    // Determinamos el buque activo según la dirección actual del canal
-    int proximo_id = -1;
-    if (c->direccion_actual == 0 && n_izq > 0) proximo_id = cola_izq[0]->id;
-    else if (c->direccion_actual == 1 && n_der > 0) proximo_id = cola_der[0]->id;
 
     int pos = 0;
     pos += sprintf(json_buf + pos, "{");
@@ -55,7 +51,7 @@ void godot_export_state(const canal_t *c, const scheduler_t *sched) {
     // 1. Info General
     pos += sprintf(json_buf + pos, "\"dir\":%d,\"buque_act\":%d,", 
                    c->direccion_actual, 
-                   proximo_id);
+                   c->pasa_buque);
 
     // 2. Slots del Canal
     pos += sprintf(json_buf + pos, "\"slots\":[");
