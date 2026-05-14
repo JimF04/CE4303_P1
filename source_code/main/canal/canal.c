@@ -367,8 +367,8 @@ void canal_viene_buque(canal_t *c){
 void buque_task(void *arg){
 
     const int col = 10;     // columna fija
-    const int inicio = 10;
-    const int fin = 35;
+    const int inicio = 0;
+    const int fin = 100;
 
     int prev = -1;
 
