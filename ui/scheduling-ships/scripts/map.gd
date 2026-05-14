@@ -44,13 +44,34 @@ var hay_frame_pendiente: bool = false
 @onready var contenedor_barcos: Node3D = $Barcos
 @onready var conector: Node = $ESP32Connector
 
+# Flecha de dirección
+@onready var dir_canal: MeshInstance3D = $DirCanal
+# Materiales para la flecha
+var _mat_izq: StandardMaterial3D
+var _mat_der: StandardMaterial3D
+
 # ==============================================================================
 # READY
 # ==============================================================================
 func _ready() -> void:
 	HudOverlay.salir_solicitado.connect(_iniciar_salida)
 	call_deferred("_conectar_señales")
+	_setup_materiales_flecha()
 
+var _dir_actual: float = -99.0
+
+func _setup_materiales_flecha() -> void:
+	_mat_izq = StandardMaterial3D.new()
+	_mat_izq.albedo_color = Color(1.0, 0.647, 0.0)  # amarillo
+
+	_mat_der = StandardMaterial3D.new()
+	_mat_der.albedo_color = Color(0.0, 1.0, 1.0)    # cian
+
+	# Aplicar amarillo por defecto desde el inicio
+	if dir_canal:
+		dir_canal.rotation.y = deg_to_rad(0.0)
+		dir_canal.set_surface_override_material(0, _mat_izq)
+	
 func _conectar_señales() -> void:
 	if conector == null:
 		push_error("No se encontró ESP32Connector.")
@@ -70,6 +91,9 @@ func _conectar_señales() -> void:
 func _on_canal_actualizado(datos: Dictionary) -> void:
 	if _salida_en_curso:  # <- ignorar frames durante la salida
 		return
+		
+	_actualizar_flecha(datos)
+		
 	if not hay_frame_pendiente:
 		# Primer frame: solo registramos tipos y lo guardamos, nada más
 		_registrar_tipos(datos)
@@ -83,6 +107,37 @@ func _on_canal_actualizado(datos: Dictionary) -> void:
 	# El frame recién llegado pasa a ser el pendiente
 	_registrar_tipos(datos)
 	frame_pendiente = datos
+	
+# ==============================================================================
+# ACTUALIZAR FLECHA
+# ==============================================================================
+func _actualizar_flecha(datos: Dictionary) -> void:
+	if dir_canal == null:
+		return
+	var dir: float = datos.get("dir", 0.0)
+
+	# Solo actuar si la dirección cambió
+	if is_equal_approx(dir, _dir_actual):
+		return
+	_dir_actual = dir
+
+	var rot_destino: float
+	var mat: StandardMaterial3D
+
+	if dir >= 1.0:
+		rot_destino = deg_to_rad(180.0)
+		mat = _mat_der
+	else:
+		rot_destino = deg_to_rad(0.0)
+		mat = _mat_izq
+
+	# Cambiar color inmediatamente
+	dir_canal.set_surface_override_material(0, mat)
+
+	# Animar la rotación
+	var t := create_tween()
+	t.tween_property(dir_canal, "rotation:y", rot_destino, 0.6) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 # ==============================================================================
 # REGISTRAR TIPOS — separado para poder hacerlo también en el primer frame
@@ -316,6 +371,14 @@ func _iniciar_salida() -> void:
 		t.tween_property(nodo, "position", destino, dur_viaje) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tweens_activos[bid] = t
+		
+	if dir_canal:
+		var t_flecha := create_tween()
+		t_flecha.set_parallel(true)
+		t_flecha.tween_property(dir_canal, "position", destino, dur_viaje) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		t_flecha.tween_property(dir_canal, "rotation:y", dir_canal.rotation.y + deg_to_rad(720.0), dur_viaje) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 	await get_tree().create_timer(dur_viaje).timeout
 
@@ -325,6 +388,9 @@ func _iniciar_salida() -> void:
 
 	for bid in barcos_activos:
 		barcos_activos[bid].visible = false
+	
+	if dir_canal:
+		dir_canal.visible = false
 
 	await get_tree().create_timer(1.5).timeout
 	get_tree().quit()
