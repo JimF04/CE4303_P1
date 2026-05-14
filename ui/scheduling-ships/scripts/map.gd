@@ -48,6 +48,7 @@ var hay_frame_pendiente: bool = false
 # READY
 # ==============================================================================
 func _ready() -> void:
+	HudOverlay.salir_solicitado.connect(_iniciar_salida)
 	call_deferred("_conectar_señales")
 
 func _conectar_señales() -> void:

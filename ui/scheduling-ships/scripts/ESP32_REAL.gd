@@ -9,13 +9,13 @@ var reconnection_timer := 0.0
 var _iniciado := false
 
 func _ready() -> void:
-	DebugConsole.log_propio("--- Iniciando Conector ESP32 ---")
-	DebugConsole.log_propio("Plataforma: " + OS.get_name())
+	HudOverlay.log_propio("--- Iniciando Conector ESP32 ---")
+	HudOverlay.log_propio("Plataforma: " + OS.get_name())
 	if OS.get_name() == "Android":
-		DebugConsole.log_propio("Solicitando permisos...")
+		HudOverlay.log_propio("Solicitando permisos...")
 		OS.request_permissions()
 		await get_tree().create_timer(4.0).timeout
-		DebugConsole.log_propio("Listo, conectando...")
+		HudOverlay.log_propio("Listo, conectando...")
 	_iniciado = true
 	_connect_socket()
 
@@ -25,12 +25,12 @@ func _connect_socket():
 		socket = null
 
 	socket = WebSocketPeer.new()
-	DebugConsole.log_propio("Conectando a: " + url)
+	HudOverlay.log_propio("Conectando a: " + url)
 	var err = socket.connect_to_url(url)
-	DebugConsole.log_propio("Resultado: %d" % err)
+	HudOverlay.log_propio("Resultado: %d" % err)
 
 	if err != OK:
-		DebugConsole.log_error("Error al conectar: %d — reintentando en %s s" % [err, str(retry_time)])
+		HudOverlay.log_error("Error al conectar: %d — reintentando en %s s" % [err, str(retry_time)])
 		socket = null
 		return
 	last_state = WebSocketPeer.STATE_CONNECTING
@@ -65,16 +65,16 @@ func _process(delta: float) -> void:
 						_procesar_paquete(json_string)
 
 		WebSocketPeer.STATE_CLOSED:
-			DebugConsole.log_error("Socket cerrado. Reconectando en %.1f s..." % retry_time)
+			HudOverlay.log_error("Socket cerrado. Reconectando en %.1f s..." % retry_time)
 			socket = null
 			last_state = WebSocketPeer.STATE_CLOSED
 			reconnection_timer = 0.0
 
 func _on_state_changed(new_state):
 	match new_state:
-		WebSocketPeer.STATE_CONNECTING: DebugConsole.log_propio("WebSocket: Conectando...")
-		WebSocketPeer.STATE_OPEN:       DebugConsole.log_ok("WebSocket: ¡Conectado!")
-		WebSocketPeer.STATE_CLOSING:    DebugConsole.log_error("WebSocket: Cerrando (ESP32 reiniciado?)...")
+		WebSocketPeer.STATE_CONNECTING: HudOverlay.log_propio("WebSocket: Conectando...")
+		WebSocketPeer.STATE_OPEN:       HudOverlay.log_ok("WebSocket: ¡Conectado!")
+		WebSocketPeer.STATE_CLOSING:    HudOverlay.log_error("WebSocket: Cerrando (ESP32 reiniciado?)...")
 		WebSocketPeer.STATE_CLOSED:     pass  # ya lo maneja el match de arriba
 
 func _procesar_paquete(json_string: String):
@@ -84,4 +84,4 @@ func _procesar_paquete(json_string: String):
 		print(json.data)
 		canal_actualizado.emit(json.data)
 	else:
-		DebugConsole.log_error("PARSEO: " + json.get_error_message())
+		HudOverlay.log_error("PARSEO: " + json.get_error_message())
