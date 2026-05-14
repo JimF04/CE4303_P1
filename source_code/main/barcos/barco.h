@@ -23,9 +23,10 @@ typedef struct {
     int pos_canal;
     int velocidad;
     int prioridad;
+    int deadLine;
+
 	char nombre[32];
     TaskHandle_t handle; // referencia al task del barco
-	
 	barco_state_t state;
     int en_cola;
     int posicion_guardada;

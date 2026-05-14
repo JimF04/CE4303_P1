@@ -14,8 +14,6 @@ extern canal_t *canal_global;
 extern scheduler_t sched;
 
 
-
-
 static barco_t barcos[8]; //lista de barcos
 static int barcos_total = 0; //cuantos barcos existen
 static int id_global = 0; //id para los barcos
@@ -74,8 +72,7 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
         return false;
     }
 
-    barco_t *b = &barcos[barcos_total]; //se guardan los barcos que hay
-    
+    barco_t *b = &barcos[barcos_total]; //se guardan los barcos que hay    
 
     // aqui se le dan las propiedades al barco
 
@@ -92,6 +89,8 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 
     asignar_velocidad(cfg, b); //se le asigna la velocidad segun el tipo de barco
     asignar_prioridad(cfg, b); //se le asigna la prioridad segun el tipo de barco
+    asignar_deadline(cfg, b); //se le asigna el deadline segun el tipo de barco
+
 
     char dir = (direccion_b == 0) ? 'L' : 'R';
     snprintf(b->nombre, sizeof(b->nombre), "%s_%c_%d", tipo_b, dir, b->id);
@@ -144,6 +143,32 @@ void asignar_prioridad(const config_t *cfg, barco_t *b)
         b->prioridad = base; // fallback
     }
 }
+
+
+
+// Metodo para asignar el deadline a los barcos
+void asignar_deadline(const config_t *cfg, barco_t *b)
+{
+    int base = cfg->barcos.prioridad_base;
+
+    if (strcmp(b->tipo, "NOR") == 0) {
+        b->deadLine = base + 2;
+    } 
+    else if (strcmp(b->tipo "PES") == 0) {
+        b->deadLine = base + 1;
+    } 
+    else if (strcmp(b->tipo, "PAT") == 0) {
+        b->deadLine = base;
+    } 
+    else {
+        b->deadLine = base; // fallback
+    }
+}
+
+
+
+
+
 
 
 // Metodo para crear barcos por default (depende del config)

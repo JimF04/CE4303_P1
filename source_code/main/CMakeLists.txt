@@ -14,7 +14,9 @@ set(SOURCES
     "scheduler/scheduler_prio.c"
     "scheduler/scheduler_strn.c"
     "scheduler/scheduler_rr.c"
+    "scheduler/scheduler_edf.c"
     "input/input_task.c"
+    
 
     
     )
