@@ -16,7 +16,7 @@ extern scheduler_t sched;
 
 
 
-static barco_t barcos[8]; //lista de barcos
+static barco_t barcos[BARCOS_MAX]; //lista de barcos
 static int barcos_total = 0; //cuantos barcos existen
 static int id_global = 0; //id para los barcos
 

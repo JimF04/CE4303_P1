@@ -67,6 +67,8 @@ func _conectar_señales() -> void:
 # termina justo cuando llega el siguiente frame.
 # ==============================================================================
 func _on_canal_actualizado(datos: Dictionary) -> void:
+	if _salida_en_curso:  # <- ignorar frames durante la salida
+		return
 	if not hay_frame_pendiente:
 		# Primer frame: solo registramos tipos y lo guardamos, nada más
 		_registrar_tipos(datos)
@@ -256,16 +258,75 @@ func _crear_barco(barco_id: int, tipo: String, pos: Vector3, rot_y_rad: float) -
 	return nodo
 
 # ==============================================================================
-# TEST
+# INPUTS
 # ==============================================================================
+
+# SALIDA CON EXPLOSIÓN
+var _salida_en_curso := false
+@onready var explosion: Node3D = $Explosion  
+
 func _input(event):
 	if not event is InputEventKey or not event.pressed:
 		return
 	match event.keycode:
-		KEY_T: _test_paquete_fake(0)
-		KEY_D: _test_paquete_fake(1)
-		KEY_M: _test_mover_barcos()
 		KEY_F: _test_canal()
+		KEY_W: _iniciar_salida()
+
+func _iniciar_salida() -> void:
+	if _salida_en_curso:
+		return
+	_salida_en_curso = true
+
+	for bid in tweens_activos:
+		var t = tweens_activos[bid]
+		if t and t.is_valid():
+			t.kill()
+	tweens_activos.clear()
+
+	var destino := Vector3(5.678, 6.024, 0.05)
+	var dur_viaje := 1.5
+
+	var canvas := CanvasLayer.new()
+	add_child(canvas)
+
+	var label := Label.new()
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 96)
+
+	# Tamaño fijo que ocupa toda la pantalla → el texto se centra solo
+	var tam := get_viewport().get_visible_rect().size
+	label.size = tam
+	label.position = Vector2.ZERO
+
+	canvas.add_child(label)
+
+	for i in range(3, 0, -1):
+		label.text = str(i)
+		await get_tree().create_timer(1.0).timeout
+
+	label.text = "¡BOOM!"
+	await get_tree().create_timer(0.8).timeout 
+	label.text = ""  
+
+	for bid in barcos_activos:
+		var nodo: Node3D = barcos_activos[bid]
+		var t := create_tween()
+		t.tween_property(nodo, "position", destino, dur_viaje) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tweens_activos[bid] = t
+
+	await get_tree().create_timer(dur_viaje).timeout
+
+	if explosion:
+		explosion.global_position = destino
+		explosion.explode()
+
+	for bid in barcos_activos:
+		barcos_activos[bid].visible = false
+
+	await get_tree().create_timer(1.5).timeout
+	get_tree().quit()
 
 func _test_canal():
 	_on_canal_actualizado({
@@ -283,42 +344,5 @@ func _test_canal():
 			null, null, null, null,
 			null, null, null,
 			{"id": 3.0, "tipo": "PES"},
-		]
-	})
-
-func _test_paquete_fake(dir_test: int):
-	_on_canal_actualizado({
-		"buque_act": -1.0, "dir": float(dir_test),
-		"ordenado_izq": [],
-		"ordenado_der": [
-			{"id": 3.0, "tipo": "PAT"},
-			{"id": 4.0, "tipo": "PES"},
-			{"id": 5.0, "tipo": "NOR"},
-		],
-		"slots": [
-			null, null, null, null, null, null, null, null,
-			{"id": 2.0, "tipo": "PES"},
-			{"id": 1.0, "tipo": "PAT"},
-			null,
-			{"id": 0.0, "tipo": "NOR"},
-			null, null, null
-		]
-	})
-
-func _test_mover_barcos():
-	_on_canal_actualizado({
-		"buque_act": -1.0, "dir": 0.0,
-		"ordenado_izq": [],
-		"ordenado_der": [
-			{"id": 3.0, "tipo": "PAT"},
-			{"id": 4.0, "tipo": "PES"},
-			{"id": 5.0, "tipo": "NOR"},
-		],
-		"slots": [
-			null, null, null, null, null, null,
-			{"id": 2.0, "tipo": "PES"},
-			null, null, null,
-			{"id": 0.0, "tipo": "NOR"},
-			null, null, null, null
 		]
 	})

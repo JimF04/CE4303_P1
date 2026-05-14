@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cpujs003561di" path="res://scripts/barco_normal.gd" id="1_odpos"]
 [ext_resource type="ArrayMesh" uid="uid://bg1pys7h5r5jq" path="res://models/boat-row-large.obj" id="2_nq1hx"]
+[ext_resource type="PackedScene" uid="uid://lir8i8p7tdw7" path="res://scenes/explosion.tscn" id="3_nq1hx"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_k2r1s"]
 albedo_color = Color(0, 0, 1, 1)
@@ -25,3 +26,6 @@ surface_material_override/2 = SubResource("StandardMaterial3D_ikfjo")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=233411694]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.02695465, 0.31222534, 0.035467148)
 shape = SubResource("BoxShape3D_5d7pa")
+
+[node name="Explosion" parent="." unique_id=1527954870 instance=ExtResource("3_nq1hx")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5480614, 0.75504804, 0)

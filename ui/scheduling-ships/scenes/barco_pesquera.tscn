@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cpujs003561di" path="res://scripts/barco_normal.gd" id="1_atcy8"]
 [ext_resource type="ArrayMesh" uid="uid://dltetn3mbrgvy" path="res://models/boat-fishing-small.obj" id="2_atcy8"]
+[ext_resource type="PackedScene" uid="uid://lir8i8p7tdw7" path="res://scenes/explosion.tscn" id="3_r03ps"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_r03ps"]
 albedo_color = Color(0, 1, 0, 1)
@@ -23,22 +24,5 @@ surface_material_override/0 = SubResource("StandardMaterial3D_r03ps")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.001411438, 0.45153046, -0.011192322)
 shape = SubResource("BoxShape3D_5d7pa")
 
-[node name="ProbeContainer" type="Node3D" parent="." unique_id=1537192356]
-
-[node name="Probe6" type="Marker3D" parent="ProbeContainer" unique_id=660981597]
-transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, -0.60323226, 0, 0.9555668)
-
-[node name="Probe5" type="Marker3D" parent="ProbeContainer" unique_id=549267830]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.47565857, 0, -0.97382617)
-
-[node name="Probe" type="Marker3D" parent="ProbeContainer" unique_id=944081474]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.47876427, 0, 0.0031102896)
-
-[node name="Probe2" type="Marker3D" parent="ProbeContainer" unique_id=258455573]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.58863294, 0.04309328, 0.92281586)
-
-[node name="Probe3" type="Marker3D" parent="ProbeContainer" unique_id=1055456916]
-transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, -0.6013497, 0, 0)
-
-[node name="Probe4" type="Marker3D" parent="ProbeContainer" unique_id=246514592]
-transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, -0.60134816, 0, -0.98227507)
+[node name="Explosion" parent="." unique_id=1527954870 instance=ExtResource("3_r03ps")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5480614, 0.75504804, 0)
