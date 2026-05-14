@@ -11,7 +11,7 @@
 #include "custom_led.h"
 
 #include "wifi/wifi.h"
-#include "wifi/godot_proto.h"
+#include "wifi/godot.h"
 
 config_t config;
 canal_t *canal_global;
@@ -31,9 +31,11 @@ void app_main(void)
 	    printf("ERROR cargando config.ini\n");
 	    return;
 	}
-	
-	wifi_init(config.wifi.ssid, config.wifi.password);
+
+	wifi_init_softap();
 	start_ws_server();
+	
+	vTaskDelay(pdMS_TO_TICKS(30000));
 	
 	// =========================
 	// 2. CANAL

@@ -1,5 +1,5 @@
-#ifndef MAIN_WIFI_GODOT_PROTO_H_
-#define MAIN_WIFI_GODOT_PROTO_H_
+#ifndef MAIN_WIFI_GODOT_H_
+#define MAIN_WIFI_GODOT_H_
 
 #include "esp_http_server.h"
 #include "canal/canal.h"
@@ -34,16 +34,20 @@ void send_to_all_ws(const char *payload) {
 }
 
 void godot_export_state(const canal_t *c, const scheduler_t *sched) {
-    // Aumentamos un poco el buffer por seguridad
-    char *json_buf = malloc(2560); 
+    // Buffer grande para las dos colas + slots
+    char *json_buf = malloc(3072); 
     if (!json_buf) return;
 
-    // Obtenemos la cola actual para extraer el buque activo y la lista
-    barco_t *cola[10];
-    int n = sched->get_queue(c->direccion_actual, cola, 10);
+    // Buffers temporales para capturar las dos colas del scheduler
+    barco_t *cola_izq[10];
+    barco_t *cola_der[10];
+    int n_izq = sched->get_queue(0, cola_izq, 10); // 0 = Izquierda
+    int n_der = sched->get_queue(1, cola_der, 10); // 1 = Derecha
     
-    // El "buque_act" es el primero en la cola (índice 0)
-    int proximo_id = (n > 0 && cola[0] != NULL) ? cola[0]->id : -1;
+    // Determinamos el buque activo según la dirección actual del canal
+    int proximo_id = -1;
+    if (c->direccion_actual == 0 && n_izq > 0) proximo_id = cola_izq[0]->id;
+    else if (c->direccion_actual == 1 && n_der > 0) proximo_id = cola_der[0]->id;
 
     int pos = 0;
     pos += sprintf(json_buf + pos, "{");
@@ -66,17 +70,28 @@ void godot_export_state(const canal_t *c, const scheduler_t *sched) {
     }
     pos += sprintf(json_buf + pos, "],");
 
-    // 3. Lista ordenada
-    pos += sprintf(json_buf + pos, "\"ordenado\":[");
-    for (int i = 0; i < n; i++) {
-        pos += sprintf(json_buf + pos, "%d%s", cola[i]->id, (i < n - 1) ? "," : "");
-    }
-    pos += sprintf(json_buf + pos, "]}");
+	// 3. Lista ordenada Izquierda
+	pos += sprintf(json_buf + pos, "\"ordenado_izq\":[");
+	for (int i = 0; i < n_izq; i++) {
+	    pos += sprintf(json_buf + pos, "{\"id\":%d,\"tipo\":\"%s\"}%s",
+	                   cola_izq[i]->id,
+	                   cola_izq[i]->tipo,
+	                   (i < n_izq - 1) ? "," : "");
+	}
+	pos += sprintf(json_buf + pos, "],");
 
-    // Enviar por WebSocket
+	// 4. Lista ordenada Derecha
+	pos += sprintf(json_buf + pos, "\"ordenado_der\":[");
+	for (int i = 0; i < n_der; i++) {
+	    pos += sprintf(json_buf + pos, "{\"id\":%d,\"tipo\":\"%s\"}%s",
+	                   cola_der[i]->id,
+	                   cola_der[i]->tipo,
+	                   (i < n_der - 1) ? "," : "");
+	}
+	pos += sprintf(json_buf + pos, "]}");
+
     send_to_all_ws(json_buf);
-
     free(json_buf);
 }
 
-#endif /* MAIN_WIFI_GODOT_PROTO_H_ */
+#endif /* MAIN_WIFI_GODOT_H_ */

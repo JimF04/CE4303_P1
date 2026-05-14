@@ -15,6 +15,10 @@ run/main_scene="uid://cc1kkw3c7tngt"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
 
+[autoload]
+
+HudOverlay="*uid://eyhax0o0jh0m"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
@@ -23,3 +27,4 @@ config/icon="res://icon.svg"
 
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true

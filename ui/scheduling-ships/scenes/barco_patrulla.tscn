@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://b530j88a8fco4"]
+
+[ext_resource type="Script" uid="uid://cpujs003561di" path="res://scripts/barco_normal.gd" id="1_lcfhp"]
+[ext_resource type="ArrayMesh" uid="uid://4h2cnw8vu5p1" path="res://models/boat-speed-d.obj" id="2_8psip"]
+
+[sub_resource type="Gradient" id="Gradient_lcfhp"]
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_8psip"]
+gradient = SubResource("Gradient_lcfhp")
+fill_from = Vector2(0.62393165, 0.35470086)
+fill_to = Vector2(0.36752138, 0.83760685)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_odpos"]
+albedo_color = Color(1, 0.27398866, 0.21327004, 1)
+albedo_texture = SubResource("GradientTexture2D_8psip")
+emission = Color(1, 0, 0, 1)
+emission_energy_multiplier = 0.0
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_5d7pa"]
+size = Vector3(1.0443726, 0.6395874, 1.9445648)
+
+[node name="BarcoPesquera" type="RigidBody3D" unique_id=2073200597]
+mass = 2.0
+script = ExtResource("1_lcfhp")
+
+[node name="BoatModel" type="MeshInstance3D" parent="." unique_id=1529814677]
+transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
+mesh = ExtResource("2_8psip")
+surface_material_override/0 = SubResource("StandardMaterial3D_odpos")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=233411694]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0652771, 0.31222534, -0.011192322)
+shape = SubResource("BoxShape3D_5d7pa")

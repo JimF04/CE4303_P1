@@ -1,26 +1,97 @@
 [gd_scene format=3 uid="uid://cc1kkw3c7tngt"]
 
-[ext_resource type="PackedScene" uid="uid://ctaxxjk4w15tt" path="res://scenes/WaterPlane.tscn" id="1_4xfga"]
 [ext_resource type="Script" uid="uid://chrnqjnbf7rf5" path="res://scripts/map.gd" id="1_gldc4"]
-[ext_resource type="PackedScene" uid="uid://ctm8md0l7fke7" path="res://scenes/barco_normal.tscn" id="2_paxxb"]
+[ext_resource type="PackedScene" uid="uid://dlokaew74j7f" path="res://scenes/barco.tscn" id="3_gldc4"]
 [ext_resource type="PackedScene" uid="uid://c1kn44agh0gd2" path="res://scenes/esp_32_connector.tscn" id="4_0cso3"]
+[ext_resource type="ArrayMesh" uid="uid://cjrqogbvawk5o" path="res://models/arrow-standing.obj" id="4_2klcf"]
+[ext_resource type="PackedScene" uid="uid://ojreg8g07b1o" path="res://scenes/buque.tscn" id="5_2klcf"]
+[ext_resource type="PackedScene" uid="uid://lir8i8p7tdw7" path="res://scenes/explosion.tscn" id="6_2lpho"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_nakos"]
+sky_top_color = Color(0, 0, 0, 1)
+sky_horizon_color = Color(0, 0, 0, 1)
+ground_bottom_color = Color(0, 0, 0, 1)
+ground_horizon_color = Color(0, 0, 0, 1)
+energy_multiplier = 1.1
+
+[sub_resource type="Sky" id="Sky_jh32y"]
+sky_material = SubResource("ProceduralSkyMaterial_nakos")
+
+[sub_resource type="Environment" id="Environment_be0no"]
+background_mode = 2
+sky = SubResource("Sky_jh32y")
+tonemap_mode = 2
+glow_enabled = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_0cso3"]
+size = Vector2(100, 100)
+orientation = 1
+
+[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_gldc4"]
+data = PackedVector3Array(50, 0, 50, -50, 0, 50, 50, 0, -50, -50, 0, 50, -50, 0, -50, 50, 0, -50)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2lpho"]
 
 [node name="Map" type="Node3D" unique_id=2123450618]
 script = ExtResource("1_gldc4")
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1294587631]
+environment = SubResource("Environment_be0no")
+
 [node name="ESP32Connector" parent="." unique_id=1252989905 instance=ExtResource("4_0cso3")]
 
+[node name="CameraLight" type="DirectionalLight3D" parent="." unique_id=608858797]
+transform = Transform3D(0.67338055, 0.059714854, -0.7368804, 0.024302756, 0.9944059, 0.10279253, 0.7388965, -0.087126724, 0.66816235, -7.141, 6.834132, 20.403)
+shadow_bias = 0.0
+shadow_normal_bias = 8.865
+shadow_reverse_cull_face = true
+shadow_opacity = 0.41
+shadow_blur = 8.305
+
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=344421675]
-transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 14, 0)
+transform = Transform3D(-0.7050372, -0.001101563, -0.70916957, -0.70651555, 0.08753792, 0.7022627, 0.061305635, 0.9961606, -0.06249576, -20.81588, 15.695613, 0)
 shadow_enabled = true
+shadow_bias = 0.0
+shadow_normal_bias = 8.865
+shadow_reverse_cull_face = true
+shadow_opacity = 0.41
+shadow_blur = 8.305
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=196066082]
-transform = Transform3D(-3.7855173e-08, -0.5, 0.8660254, -2.1855694e-08, 0.8660254, 0.5, -1, 0, -4.371139e-08, 8, 5, 0)
+transform = Transform3D(0.673216, 0.059269343, -0.73706675, 0.024212686, 0.9944811, 0.10208385, 0.7390494, -0.086570844, 0.6680655, -6.093751, 5.5000043, 18.700695)
 
-[node name="Water" parent="." unique_id=119862006 instance=ExtResource("1_4xfga")]
+[node name="Plano" type="StaticBody3D" parent="." unique_id=1498481469]
 
-[node name="Barco_Normal" parent="." unique_id=1071077738 instance=ExtResource("2_paxxb")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8649982, 0)
-mass = 50.0
+[node name="MeshInstance" type="MeshInstance3D" parent="Plano" unique_id=763981789]
+visible = false
+mesh = SubResource("QuadMesh_0cso3")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Plano" unique_id=476053295]
+shape = SubResource("ConcavePolygonShape3D_gldc4")
+
+[node name="Explosion" parent="." unique_id=1527954870 instance=ExtResource("6_2lpho")]
+transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)
 
 [node name="Barcos" type="Node3D" parent="." unique_id=1007636791]
+
+[node name="BarcoTest" parent="." unique_id=2073200597 instance=ExtResource("3_gldc4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1226311, 0)
+
+[node name="BarcoTest2" parent="BarcoTest" unique_id=786900469 instance=ExtResource("3_gldc4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.067947626, 16.745575)
+
+[node name="BarcoTest" parent="BarcoTest" unique_id=997475381 instance=ExtResource("3_gldc4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.033973813, -17.711052)
+
+[node name="extra" type="MeshInstance3D" parent="." unique_id=553574540]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.678137, 6.023839, 0.050160408)
+visible = false
+mesh = ExtResource("4_2klcf")
+
+[node name="DirCanal" type="MeshInstance3D" parent="." unique_id=1690296689]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.3988085, 6.334, 10)
+mesh = ExtResource("4_2klcf")
+surface_material_override/0 = SubResource("StandardMaterial3D_2lpho")
+
+[node name="Buque" parent="." unique_id=299814713 instance=ExtResource("5_2klcf")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -0.06387329, 0, 0)
