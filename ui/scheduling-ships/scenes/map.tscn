@@ -54,4 +54,3 @@ shape = SubResource("ConcavePolygonShape3D_gldc4")
 
 [node name="Barco" parent="." unique_id=2073200597 instance=ExtResource("3_gldc4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1226311, 0)
-visible = false

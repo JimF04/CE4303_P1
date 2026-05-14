@@ -2,25 +2,38 @@
 
 [ext_resource type="ArrayMesh" uid="uid://4h2cnw8vu5p1" path="res://models/boat-speed-d.obj" id="1_5d7pa"]
 [ext_resource type="Script" uid="uid://cpujs003561di" path="res://scripts/barco_normal.gd" id="1_odpos"]
+[ext_resource type="ArrayMesh" uid="uid://bg1pys7h5r5jq" path="res://models/boat-row-large.obj" id="2_nq1hx"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_k2r1s"]
+albedo_color = Color(0, 0, 1, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ikfjo"]
+albedo_color = Color(0, 0, 1, 1)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_odpos"]
 albedo_color = Color(0, 0, 1, 1)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_5d7pa"]
-size = Vector3(1.0443726, 0.6395874, 1.9445648)
+size = Vector3(0.9844818, 0.6395874, 1.8931236)
 
 [node name="BarcoPesquera" type="RigidBody3D" unique_id=2073200597]
 mass = 2.0
 script = ExtResource("1_odpos")
-float_force = 5.0
+
+[node name="BoatRowLarge" type="MeshInstance3D" parent="." unique_id=1973534556]
+transform = Transform3D(0.72330093, 0, 0, 0, 0.5, 0, 0, 0, 0.67125475, 0, 0, 0.04691744)
+mesh = ExtResource("2_nq1hx")
+surface_material_override/0 = SubResource("StandardMaterial3D_k2r1s")
+surface_material_override/2 = SubResource("StandardMaterial3D_ikfjo")
 
 [node name="BoatModel" type="MeshInstance3D" parent="." unique_id=1529814677]
 transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
+visible = false
 mesh = ExtResource("1_5d7pa")
 surface_material_override/0 = SubResource("StandardMaterial3D_odpos")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=233411694]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0652771, 0.31222534, -0.011192322)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.02695465, 0.31222534, 0.035467148)
 shape = SubResource("BoxShape3D_5d7pa")
 
 [node name="ProbeContainer" type="Node3D" parent="." unique_id=1537192356]
