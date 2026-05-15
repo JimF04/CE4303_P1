@@ -47,9 +47,11 @@ void app_main(void)
 	canal_global = &canal;
 	
 	// =========================
-	// 3. MUTEX
+	// 3. SCHEDULER
 	// =========================
-	
+	sched = scheduler_get(&config);
+
+	sched.init(&canal, &config);
 	
 	// =========================
 	// 4. CREAR BARCOS (TASKS) POR DEFAULT 
@@ -58,12 +60,7 @@ void app_main(void)
 	    barcos_init(&config);
 	}
 	
-	// =========================
-	// 5. SCHEDULER
-	// =========================
-	sched = scheduler_get(&config);
-	
-	sched.init(&canal, &config);
+
 
 
     printf("\n===== INICIO (MODELO DISTRIBUIDO) =====\n");
@@ -91,23 +88,19 @@ void app_main(void)
     // =========================
     // LIMPIAR TERMINADOS
     // =========================
-    for (int i = 0; i < barcos_count(); i++) {
+	
+	for (int i = 0; i < barcos_count(); i++) {
+	    barco_t *b = barcos_get(i);
+	    if (!b) continue;
 
-        barco_t *b = barcos_get(i); //se toma un barco
+	    if (b->id != -1 &&         
+	        b->state == DONE && 
+	        b->pos_canal == -1) {
 
-        if (!b) continue; //es valido?
-
-        if (b->id != -1 && //esta en el canal
-            b->state == DONE && //el estado es done?
-            b->pos_canal == -1) {
-
-            printf("[MAIN] Eliminando barco %d (%s)\n",
-                   b->id, b->nombre);
-
-            eliminar_barco(i); //se elimina
-            i--; //se baja la cantidad de barcos
-        }
-    }
+	        printf("[MAIN] Eliminando barco %d (%s)\n", b->id, b->nombre);
+	        eliminar_barco(i);
+	    }
+	}
 	
 	// =========================
 	// TICK DE POLÍTICA 
@@ -146,6 +139,8 @@ void app_main(void)
         if (!b) {
 			continue; //que sea valido
 		} 
+		
+		if (b->id == -1) continue; 
 		
 		if (b->pos_canal >= 0 && b->handle != NULL) {
 		    xTaskNotifyGive(b->handle);

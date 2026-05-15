@@ -122,8 +122,9 @@ static void fcfs_notify_done(barco_t *b)
 
     b->state = DONE;
 
-    if (en_canal > 0)
+    if (en_canal > 0){
         en_canal--;
+	}
 
     printf("[FCFS] Barco %d (%s) salió. en_canal=%d\n",
            b->id, b->nombre, en_canal);

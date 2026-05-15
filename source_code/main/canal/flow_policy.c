@@ -115,17 +115,20 @@ typedef struct {
     int pasados_w;    // cuántos han SALIDO en esta ronda
 	int dentro;       // cuántos del lado activo están aún en el canal
     int w;            // máximo por ronda
+	canal_t *canal;
 } equidad_state_t;
 
 static equidad_state_t eq_state;
 
 static void equidad_init(flow_policy_t *self, canal_t *c, const config_t *cfg)
 {
-    (void)c;
+
+	printf("[EQUIDAD] canal ptr = %p\n", (void*)c);
     eq_state.dir_activa = 0;          // arranca IZQ
     eq_state.pasados_w  = 0;
-    eq_state.w          = cfg->canal.parametro_w;
+    eq_state.w          = (cfg->canal.parametro_w > 0) ? cfg->canal.parametro_w : 1;
     self->state         = &eq_state;
+	eq_state.canal      = c;
 
     printf("[EQUIDAD] W=%d, arranca IZQ\n", eq_state.w);
 }
@@ -157,6 +160,7 @@ static int equidad_allow(flow_policy_t *self, canal_t *c, barco_t *b)
 {
     equidad_state_t *s = (equidad_state_t *)self->state;
     int dir_canal = equidad_dir_activa_canal(c);
+    int w_efectivo = (s->w > 0) ? s->w : 1;
 
     // No-colisión siempre
     if (dir_canal != -1 && dir_canal != b->direccion)
@@ -164,20 +168,18 @@ static int equidad_allow(flow_policy_t *self, canal_t *c, barco_t *b)
 
     // Lado activo: puede entrar si no agotó W
     if (b->direccion == s->dir_activa) {
-        if (s->pasados_w < s->w)
+        if (s->pasados_w < w_efectivo)
             return 1;
         else
             return 0;
     }
 
-    // Lado no activo: solo entra si el lado activo no tiene nadie
-    // NO modificar dir_activa aquí — solo consultar
+    // Lado no activo: entra si el lado activo no tiene nadie esperando ni adentro
     if (!equidad_hay_barcos_dir(s->dir_activa) && dir_canal == -1)
         return 1;
 
     return 0;
 }
-
 static void equidad_tick(flow_policy_t *self, canal_t *c)
 {
     (void)self; (void)c;
@@ -186,23 +188,24 @@ static void equidad_tick(flow_policy_t *self, canal_t *c)
 void equidad_notify_salio(flow_policy_t *self, int direccion)
 {
     equidad_state_t *s = (equidad_state_t *)self->state;
+    int w_efectivo = (s->w > 0) ? s->w : 1;
 
-    // Si entró un barco del lado no activo (porque el activo estaba vacío),
-    // actualizar dir_activa ahora
+	int dir_canal = (s->canal != NULL) ? equidad_dir_activa_canal(s->canal) : -1;  
+ 
+
     if (direccion != s->dir_activa) {
         s->dir_activa = direccion;
-        s->pasados_w  = 1;  // este barco ya cuenta como el primero
+        s->pasados_w  = 1;
         printf("[EQUIDAD] Lado activo vacío, dir_activa cambia a %s, pasados=1/%d\n",
-               direccion == 0 ? "IZQ" : "DER", s->w);
+               direccion == 0 ? "IZQ" : "DER", w_efectivo);
         return;
     }
 
     s->pasados_w++;
     printf("[EQUIDAD] Barco entró dir=%s, pasados=%d/%d\n",
-           direccion == 0 ? "IZQ" : "DER",
-           s->pasados_w, s->w);
+           direccion == 0 ? "IZQ" : "DER", s->pasados_w, w_efectivo);
 
-    if (s->pasados_w >= s->w) {
+    if (s->pasados_w >= w_efectivo) {
         int otro = 1 - s->dir_activa;
 
         if (equidad_hay_barcos_dir(otro)) {
@@ -214,6 +217,17 @@ void equidad_notify_salio(flow_policy_t *self, int direccion)
             s->pasados_w = 0;
             printf("[EQUIDAD] Otro lado vacío, continúa %s\n",
                    s->dir_activa == 0 ? "IZQ" : "DER");
+        }
+
+    } else {
+        if (!equidad_hay_barcos_dir(s->dir_activa) && dir_canal == -1) {
+            int otro = 1 - s->dir_activa;
+            if (equidad_hay_barcos_dir(otro)) {
+                s->dir_activa = otro;
+                s->pasados_w  = 0;
+                printf("[EQUIDAD] Lado activo sin barcos antes de W, cambia a %s\n",
+                       otro == 0 ? "IZQ" : "DER");
+            }
         }
     }
 }

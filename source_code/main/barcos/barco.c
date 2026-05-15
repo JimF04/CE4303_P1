@@ -53,28 +53,31 @@ void barco_task(void *arg)
 // ========================
 
 // Metodo para crear un barco (proceso)
-bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
+barco_t* crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 {
-    int capacidad_logica = cfg->barcos.cantidad * 2; 
-
-
-    // if (capacidad_logica > BARCOS_MAX) {
-    //     printf("ERROR: config.ini solicita %d barcos (máximo permitido = %d)\n",
-    //            capacidad_logica, BARCOS_MAX);
-    //     return false;
-    // }
-
-    // if (barcos_total >= capacidad_logica) {
-    //     printf("Límite del config alcanzado (%d barcos)\n", capacidad_logica);
-    //     return false;
-    // }
 
     if (cantidad >= BARCOS_MAX) {
         printf("Límite físico alcanzado (%d barcos)\n", BARCOS_MAX);
-        return false;
+        return NULL;
     }
 
-    barco_t *b = &barcos[barcos_total]; //se guardan los barcos que hay    
+	// Buscar slot libre (id == -1) primero
+	int slot = -1;
+	for (int i = 0; i < barcos_total; i++) {
+	    if (barcos[i].id == -1) {
+	        slot = i;
+	        break;
+	    }
+	}
+
+	// Si no hay slot libre, expandir al final
+	if (slot == -1) {
+	    if (barcos_total >= BARCOS_MAX) return NULL;
+	    slot = barcos_total;
+	    barcos_total++;  // ← SOLO aquí, no abajo
+	}
+
+	barco_t *b = &barcos[slot];  
 
     // aqui se le dan las propiedades al barco
 
@@ -100,12 +103,13 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
     xTaskCreate(barco_task,b->nombre, 4096, b, 5, &b->handle); //se crea el task, este se empieza a ejecutar automaticamente
 
     id_global++;
-    barcos_total++;
+
     cantidad ++;
 
-    printf("Barco %d creado (%s)\n", b->id, b->tipo);
+	printf("Barco %d creado (%s) [slot=%d, total=%d]\n",
+	       b->id, b->tipo, slot, barcos_total);
 
-    return true; 
+    return b;
 }
 
 
@@ -194,13 +198,15 @@ void barcos_init(const config_t *cfg)
     // IZQUIERDA — solo los que están definidos
     for (int i = 0; i < n_izq; i++) {
         if (strlen(cfg->barcos.izquierda[i]) == 0) break;
-        crear_barco(cfg, cfg->barcos.izquierda[i], 0);
+		barco_t *b = crear_barco(cfg, cfg->barcos.izquierda[i], 0);
+		if (b) sched.enqueue(b);
     }
 
     // DERECHA — solo los que están definidos
     for (int i = 0; i < n_der; i++) {
         if (strlen(cfg->barcos.derecha[i]) == 0) break;
-        crear_barco(cfg, cfg->barcos.derecha[i], 1);
+		barco_t *b = crear_barco(cfg, cfg->barcos.derecha[i], 1);
+		if (b) sched.enqueue(b);
     }
 
     printf("[BARCOS] Total creados: %d (izq=%d, der=%d)\n",
@@ -212,28 +218,17 @@ void barcos_init(const config_t *cfg)
 // ========================
 void eliminar_barco(int index)
 {
-    if (index < 0 || index >= barcos_total) return; //se elimina con el indice en la lista
+    if (index < 0 || index >= barcos_total) return;
 
-    barco_t *b = &barcos[index]; //se toma el barco
-
-    b->handle = NULL; 
-    b->state = DONE; //se pone como listo
-    b->pos_canal = -1; //se quita del canal
-
-    //MARCAR COMO LIBRE
-    b->id = -1;
-
+    barco_t *b = &barcos[index];
+    b->handle  = NULL;
+    b->state   = DONE;
+    b->pos_canal = -1;
+    b->id      = -1;
+    strcpy(b->nombre, "FREE");
     cantidad--;
 
-
-    strcpy(b->nombre, "FREE");
-
-
-    
-    printf("Barco eliminado (slot %d liberado)\n", index);
 }
-
-
 
 
 // ========================

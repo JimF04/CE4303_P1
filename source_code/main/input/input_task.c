@@ -34,29 +34,16 @@ void crear_barco_por_pulsos(int pulsos, int direccion)
 {
     char tipo[16];
 
-    if (pulsos >= 3) {
-        strcpy(tipo, "PAT");
-    }
-    else if (pulsos == 2) {
-        strcpy(tipo, "PES");
-    }
-    else {
-        strcpy(tipo, "NOR");
-    }
+    if (pulsos >= 3)     strcpy(tipo, "PAT");
+    else if (pulsos == 2) strcpy(tipo, "PES");
+    else                  strcpy(tipo, "NOR");
 
-    printf("Creando barco tipo: %s, direccion: %d\n",
-           tipo, direccion);
+    printf("Creando barco tipo: %s, direccion: %d\n", tipo, direccion);
 
-    if (crear_barco(&config, tipo, direccion)) {
-        int count = barcos_count();
+    barco_t *b = crear_barco(&config, tipo, direccion); 
 
-        if (count > 0) {
-            barco_t *b = barcos_get(count - 1);
-
-            if (b != NULL) {
-                sched.enqueue(b);
-            }
-        }
+    if (b != NULL) {
+        sched.enqueue(b); 
     }
 }
 
