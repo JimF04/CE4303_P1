@@ -35,7 +35,7 @@ void app_main(void)
 	wifi_init_softap();
 	start_ws_server();
 	
-	vTaskDelay(pdMS_TO_TICKS(20000));
+	vTaskDelay(pdMS_TO_TICKS(500));
 	
 	// =========================
 	// 2. CANAL

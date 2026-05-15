@@ -113,6 +113,7 @@ static void letrero_tick(flow_policy_t *self, canal_t *c)
 typedef struct {
     int dir_activa;   // 0=IZQ, 1=DER
     int pasados_w;    // cuántos han SALIDO en esta ronda
+	int dentro;       // cuántos del lado activo están aún en el canal
     int w;            // máximo por ronda
 } equidad_state_t;
 
@@ -157,19 +158,24 @@ static int equidad_allow(flow_policy_t *self, canal_t *c, barco_t *b)
     equidad_state_t *s = (equidad_state_t *)self->state;
     int dir_canal = equidad_dir_activa_canal(c);
 
-    // No-colisión: si hay barcos adentro de otra dirección, bloquear
+    // No-colisión siempre
     if (dir_canal != -1 && dir_canal != b->direccion)
         return 0;
 
-    // Si el lado activo no tiene barcos esperando ni dentro, ceder al otro
+    // Lado activo: puede entrar si no agotó W
+    if (b->direccion == s->dir_activa) {
+        if (s->pasados_w < s->w)
+            return 1;
+        else
+            return 0;
+    }
+
+    // Lado no activo: solo entra si el lado activo no tiene nadie
+    // NO modificar dir_activa aquí — solo consultar
     if (!equidad_hay_barcos_dir(s->dir_activa) && dir_canal == -1)
         return 1;
 
-    // Solo permitir si coincide con la dirección activa de EQUIDAD
-    if (b->direccion != s->dir_activa)
-        return 0;
-
-    return 1;
+    return 0;
 }
 
 static void equidad_tick(flow_policy_t *self, canal_t *c)
@@ -181,35 +187,36 @@ void equidad_notify_salio(flow_policy_t *self, int direccion)
 {
     equidad_state_t *s = (equidad_state_t *)self->state;
 
-    // Solo contar si salió del lado activo
-    if (direccion != s->dir_activa)
+    // Si entró un barco del lado no activo (porque el activo estaba vacío),
+    // actualizar dir_activa ahora
+    if (direccion != s->dir_activa) {
+        s->dir_activa = direccion;
+        s->pasados_w  = 1;  // este barco ya cuenta como el primero
+        printf("[EQUIDAD] Lado activo vacío, dir_activa cambia a %s, pasados=1/%d\n",
+               direccion == 0 ? "IZQ" : "DER", s->w);
         return;
+    }
 
     s->pasados_w++;
-    printf("[EQUIDAD] Barco salió dir=%s, pasados=%d/%d\n",
+    printf("[EQUIDAD] Barco entró dir=%s, pasados=%d/%d\n",
            direccion == 0 ? "IZQ" : "DER",
            s->pasados_w, s->w);
 
-    // ¿Cumplimos el W?
     if (s->pasados_w >= s->w) {
         int otro = 1 - s->dir_activa;
 
         if (equidad_hay_barcos_dir(otro)) {
-            // Cambiar al otro lado
             s->dir_activa = otro;
             s->pasados_w  = 0;
             printf("[EQUIDAD] Cambio a %s (W cumplido)\n",
                    otro == 0 ? "IZQ" : "DER");
         } else {
-            // Otro lado vacío: resetear W y continuar mismo lado
             s->pasados_w = 0;
             printf("[EQUIDAD] Otro lado vacío, continúa %s\n",
                    s->dir_activa == 0 ? "IZQ" : "DER");
         }
     }
 }
-
-
 /* ═══════════════════════════════════════════════════════
    TICO
    ─ Sin control de flujo.

@@ -186,15 +186,15 @@ void canal_mover_barco(canal_t *c, barco_t *b)
     xSemaphoreGive(c->slot_mutex[lock_1]);
 
     // 3. Re-verificar destino 
-    if (c->slots[destino] == NULL) {
-        c->slots[destino]    = b;
-        c->slots[pos_actual] = NULL;
-        b->pos_canal         = destino;
-        b->posicion_guardada = destino;
-    }
-
-    xSemaphoreGive(c->slot_mutex[lock_2]);
-    xSemaphoreGive(c->slot_mutex[lock_1]);
+//    if (c->slots[destino] == NULL) {
+//        c->slots[destino]    = b;
+//        c->slots[pos_actual] = NULL;
+//        b->pos_canal         = destino;
+//        b->posicion_guardada = destino;
+//    }
+//
+//    xSemaphoreGive(c->slot_mutex[lock_2]);
+//    xSemaphoreGive(c->slot_mutex[lock_1]);
 
     // 4. Verificar si llegó al borde
     int borde = (dir == 0) ? c->largo - 1 : 0;
@@ -214,8 +214,8 @@ void canal_mover_barco(canal_t *c, barco_t *b)
                 c->direccion_actual = -1;
             xSemaphoreGive(c->meta_mutex);
 
-            if (c->policy && c->policy->notify_salio)
-                c->policy->notify_salio(c->policy, b->direccion);
+//            if (c->policy && c->policy->notify_salio)
+//                c->policy->notify_salio(c->policy, b->direccion);
 
             printf("[CANAL] Barco %d salió del canal\n", b->id);
         }
@@ -250,6 +250,9 @@ int canal_insertar(canal_t *c, barco_t *b)
     c->ocupacion++;
     b->state             = RUNNING;
     xSemaphoreGive(c->slot_mutex[pos]);
+	
+	if (c->policy && c->policy->notify_salio)
+	    c->policy->notify_salio(c->policy, b->direccion);
 
     printf("[CANAL] Barco %d entró al canal (pos=%d)\n", b->id, pos);
 

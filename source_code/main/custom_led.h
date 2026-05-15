@@ -9,7 +9,7 @@
 #include "scheduler/scheduler.h"
 
 #define UART_LED_PORT   UART_NUM_1
-#define LED_TOTAL       30
+#define LED_TOTAL       29
 
 #define LED_IZQ_START    0
 #define LED_IZQ_END      3
@@ -126,10 +126,10 @@ void led_render_canal(const canal_t *c, const scheduler_t *sched)
 	// ── LED 29: indicador de dirección del canal ──────────────
 	if (c->direccion_actual == 0) {
 	    // Izquierda -> amarillo
-	    R[29] = 255; G[29] = 165; B[29] = 0;
+	    R[28] = 255; G[28] = 165; B[28] = 0;
 	} else {
 	    // Derecha -> cian
-	    R[29] = 0; G[29] = 255; B[29] = 255;
+	    R[28] = 0; G[28] = 255; B[28] = 255;
 	}
 
     // ── Construir y enviar FRAME ──────────────────────────
