@@ -4,9 +4,16 @@
 
 #include "../barcos/barco.h"
 
+// ========================
+//    CONFIGURACIÓN COLA
+// ========================
+
 #define MAX_Q 64
 
-/* ─── entrada de cola ─────────────────────────────────── */
+/**
+ * sched_entry_t: Representa un barco dentro de la cola con su valor.
+ * sched_queue_t: Estructura de cola circular para gestionar los barcos en espera.
+ */
 typedef struct {
     barco_t *barco;
     int      valor;   // orden, prioridad, velocidad, etc. según algoritmo
@@ -17,13 +24,23 @@ typedef struct {
     int head, tail, size;
 } sched_queue_t;
 
-/* ─── init ───────────────────────────────────────────── */
+
+// ========================
+//    GESTIÓN DE MEMORIA
+// ========================
+
+// Inicializa los índices y el contador de tamaño de la cola
 static inline void sq_init(sched_queue_t *q)
 {
     q->head = q->tail = q->size = 0;
 }
 
+// ========================
+//    OPERACIONES PUSH/POP
+// ========================
+
 /* ─── enqueue ─────────────────────────────────────────── */
+// Agrega un nuevo barco y su valor de criterio al final de la cola
 static inline void sq_enq(sched_queue_t *q, barco_t *b, int valor)
 {
     if (!b || q->size >= MAX_Q) return;
@@ -34,6 +51,7 @@ static inline void sq_enq(sched_queue_t *q, barco_t *b, int valor)
 }
 
 /* ─── dequeue FIFO ────────────────────────────────────── */
+// Extrae el primer barco que entró (Lógica FIFO)
 static inline barco_t *sq_deq(sched_queue_t *q)
 {
     if (q->size == 0) return NULL;
@@ -44,6 +62,7 @@ static inline barco_t *sq_deq(sched_queue_t *q)
 }
 
 /* ─── dequeue mayor valor ─────────────────────────────── */
+// Busca y extrae el barco con el mayor valor acumulado 
 static inline barco_t *sq_deq_max(sched_queue_t *q)
 {
     if (q->size == 0) return NULL;
@@ -74,6 +93,7 @@ static inline barco_t *sq_deq_max(sched_queue_t *q)
 }
 
 /* ─── dequeue menor valor ─────────────────────────────── */
+// Busca y extrae el barco con el menor valor acumulado (ej. Shortest Job First)
 static inline barco_t *sq_deq_min(sched_queue_t *q)
 {
     if (q->size == 0) return NULL;
@@ -103,7 +123,12 @@ static inline barco_t *sq_deq_min(sched_queue_t *q)
     return b;
 }
 
+// ========================
+//    CONSULTA DE VALORES
+// ========================
+
 /* ─── peek frente (FIFO) ──────────────────────────────── */
+// Retorna el valor del primer barco en la cola sin extraerlo
 static inline int sq_peek_front(sched_queue_t *q)
 {
     if (q->size == 0) return 0x7FFFFFFF;   // infinito
@@ -111,6 +136,7 @@ static inline int sq_peek_front(sched_queue_t *q)
 }
 
 /* ─── peek mayor valor ────────────────────────────────── */
+// Escanea la cola y retorna el valor máximo encontrado
 static inline int sq_peek_max(sched_queue_t *q)
 {
     if (q->size == 0) return -1;
@@ -124,6 +150,7 @@ static inline int sq_peek_max(sched_queue_t *q)
 }
 
 /* ─── peek menor valor ────────────────────────────────── */
+// Escanea la cola y retorna el valor mínimo encontrado
 static inline int sq_peek_min(sched_queue_t *q)
 {
     if (q->size == 0) return 0x7FFFFFFF;
@@ -136,7 +163,12 @@ static inline int sq_peek_min(sched_queue_t *q)
     return min;
 }
 
+// ========================
+//    UTILIDADES / RENDER
+// ========================
+
 /* ─── exportar orden de cola (para LEDs) ─────────────── */
+// Copia los punteros de los barcos a un arreglo externo
 static inline int sq_get_queue(sched_queue_t *q, barco_t **out, int max)
 {
     int count = 0;
@@ -148,12 +180,14 @@ static inline int sq_get_queue(sched_queue_t *q, barco_t **out, int max)
 }
 
 /* ─── peek barco frente (FIFO) ────────────────────────── */
+// Retorna el puntero del barco al frente de la cola (FIFO)
 static inline barco_t *sq_peek_barco(sched_queue_t *q)
 {
     if (q->size == 0) return NULL;
     return q->data[q->head].barco;
 }
 
+// Retorna el barco que posee el mayor valor de criterio actualmente
 static inline barco_t *sq_peek_barco_max(sched_queue_t *q)
 {
     if (q->size == 0) return NULL;
@@ -170,8 +204,7 @@ static inline barco_t *sq_peek_barco_max(sched_queue_t *q)
 }
 
 
-
-
+// Retorna el barco que posee el menor valor de criterio actualmente
 static inline barco_t *sq_peek_barco_min(sched_queue_t *q)
 {
     if (q->size == 0) return NULL;

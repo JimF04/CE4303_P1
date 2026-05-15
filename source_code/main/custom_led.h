@@ -19,7 +19,7 @@
 #define LED_DER_END     27
 #define LED_CANAL_COUNT (LED_CANAL_END - LED_CANAL_START + 1)  // 20 LEDs
 
-// ── UART init ─────────────────────────────────────────────
+// UART init 
 void uart_init_led(void)
 {
     uart_config_t cfg = {
@@ -34,7 +34,7 @@ void uart_init_led(void)
     uart_set_pin(UART_LED_PORT, 16, 17, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 }
 
-// ── Comandos básicos  ──────────────────────
+// Comandos básicos 
 void send_led(int pos, int r, int g, int b)
 {
     char buf[32];
@@ -61,7 +61,7 @@ void send_buque_state(int activo)
     uart_write_bytes(UART_LED_PORT, buf, len);
 }
 
-// ── Color según tipo ──────────────────────────────────────
+// Color según tipo
 static void color_por_tipo(const char *tipo, int *r, int *g, int *b)
 {
     if      (strcmp(tipo, "NOR") == 0) { *r = 0;   *g = 0;   *b = 255; }
@@ -70,7 +70,7 @@ static void color_por_tipo(const char *tipo, int *r, int *g, int *b)
     else                               { *r = 255; *g = 255; *b = 255; }
 }
 
-// ── Mapeo pos_canal -> LED ─────────────────────────────────
+// Mapeo pos_canal -> LED 
 static int canal_pos_to_led(int pos_canal, int largo)
 {
     if (largo <= 1) return LED_CANAL_START;
@@ -84,7 +84,7 @@ static int canal_pos_to_led(int pos_canal, int largo)
     return led;
 }
 
-// ── Render completo via FRAME ─────────────────────────────
+// Render completo via FRAME 
 // Agregar parámetro sched
 void led_render_canal(const canal_t *c, const scheduler_t *sched)
 {
@@ -101,7 +101,7 @@ void led_render_canal(const canal_t *c, const scheduler_t *sched)
     int G[LED_TOTAL] = {0};
     int B[LED_TOTAL] = {0};
 
-    // ── Barcos en el canal ────────────────────────────────
+    // Barcos en el canal 
     for (int i = 0; i < c->largo; i++) {
         barco_t *b = c->slots[i];
         if (!b) continue;
@@ -110,7 +110,7 @@ void led_render_canal(const canal_t *c, const scheduler_t *sched)
     }
 
 		
-    // ── Cola izquierda: primero = más cercano al canal (LED 3) ──
+    //Cola izquierda: primero = más cercano al canal (LED 3) 
     barco_t *cola_izq[BARCOS_MAX];
     int n_izq = sched->get_queue(0, cola_izq, BARCOS_MAX);
 
@@ -140,7 +140,7 @@ void led_render_canal(const canal_t *c, const scheduler_t *sched)
         B[led] = bl / 3;
     }
 	
-	// ── LED 29: indicador de dirección del canal ──────────────
+	// LED 28: indicador de dirección del canal
 	if (c->direccion_actual == 0) {
 	    // Izquierda -> amarillo
 	    R[28] = 255; G[28] = 165; B[28] = 0;
@@ -149,7 +149,7 @@ void led_render_canal(const canal_t *c, const scheduler_t *sched)
 	    R[28] = 0; G[28] = 255; B[28] = 255;
 	}
 
-    // ── Construir y enviar FRAME ──────────────────────────
+    //  Construir y enviar FRAME 
     char frame[512];
     int  pos = snprintf(frame, sizeof(frame), "FRAME ");
 
