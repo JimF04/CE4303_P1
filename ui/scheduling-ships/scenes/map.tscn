@@ -58,7 +58,7 @@ shadow_opacity = 0.41
 shadow_blur = 8.305
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=196066082]
-transform = Transform3D(0.673216, 0.059269343, -0.73706675, 0.024212686, 0.9944811, 0.10208385, 0.7390494, -0.086570844, 0.6680655, -6.093751, 5.5000043, 18.700695)
+transform = Transform3D(0.67172056, 0.07614918, -0.7368804, 0, 0.9947028, 0.10279253, 0.7408046, -0.06904786, 0.66816235, -6.093751, 5.5000043, 18.700695)
 
 [node name="Plano" type="StaticBody3D" parent="." unique_id=1498481469]
 
@@ -71,7 +71,7 @@ transform = Transform3D(2.563099, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 shape = SubResource("ConcavePolygonShape3D_gldc4")
 
 [node name="Explosion" parent="." unique_id=1527954870 instance=ExtResource("6_2lpho")]
-transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)
+transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 20.092194, 0)
 
 [node name="Barcos" type="Node3D" parent="." unique_id=1007636791]
 
@@ -93,10 +93,14 @@ visible = false
 mesh = ExtResource("4_2klcf")
 
 [node name="DirCanal" type="MeshInstance3D" parent="." unique_id=1690296689]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.3988085, 6.334, 10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.408013, 8.454678, 17.221104)
 mesh = ExtResource("4_2klcf")
 surface_material_override/0 = SubResource("StandardMaterial3D_2lpho")
 
 [node name="Buque" parent="." unique_id=2129961386 instance=ExtResource("5_2klcf")]
 transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 100, 0, 0)
+visible = false
+
+[node name="Buque2" parent="." unique_id=1241042032 instance=ExtResource("5_2klcf")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 15.401619, 0, 0)
 visible = false

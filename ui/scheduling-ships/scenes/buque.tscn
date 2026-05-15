@@ -6,8 +6,16 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_5d7pa"]
 size = Vector3(3.9205456, 3.5088959, 10.577745)
 
+[sub_resource type="Gradient" id="Gradient_fooe3"]
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_jxjwu"]
+gradient = SubResource("Gradient_fooe3")
+fill_from = Vector2(0, 0.82051283)
+fill_to = Vector2(0.33760685, 0.43589744)
+
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nkrlb"]
 albedo_color = Color(1, 0.7529412, 0.26666668, 1)
+albedo_texture = SubResource("GradientTexture2D_jxjwu")
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8ad73"]
 albedo_color = Color(0.8117647, 0.3254902, 0.30980393, 1)
