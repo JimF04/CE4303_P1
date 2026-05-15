@@ -15,6 +15,9 @@ extern scheduler_t sched;
 
 static barco_t barcos[BARCOS_MAX]; //lista de barcos
 static int barcos_total = 0; //cuantos barcos existen
+
+static int cantidad = 0; //cuantos barcos existen
+
 static int id_global = 0; //id para los barcos
 
 // ========================
@@ -66,10 +69,10 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
     //     return false;
     // }
 
-    // if (barcos_total >= BARCOS_MAX) {
-    //     printf("Límite físico alcanzado (%d barcos)\n", BARCOS_MAX);
-    //     return false;
-    // }
+    if (cantidad >= BARCOS_MAX) {
+        printf("Límite físico alcanzado (%d barcos)\n", BARCOS_MAX);
+        return false;
+    }
 
     barco_t *b = &barcos[barcos_total]; //se guardan los barcos que hay    
 
@@ -98,6 +101,7 @@ bool crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 
     id_global++;
     barcos_total++;
+    cantidad ++;
 
     printf("Barco %d creado (%s)\n", b->id, b->tipo);
 
@@ -218,9 +222,14 @@ void eliminar_barco(int index)
 
     //MARCAR COMO LIBRE
     b->id = -1;
-    strcpy(b->nombre, "FREE");
-    
 
+    cantidad--;
+
+
+    strcpy(b->nombre, "FREE");
+
+
+    
     printf("Barco eliminado (slot %d liberado)\n", index);
 }
 
