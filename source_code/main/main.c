@@ -35,7 +35,7 @@ void app_main(void)
 	start_ws_server();
 	
 	// delay para darle chance al UI a conectarse 
-	vTaskDelay(pdMS_TO_TICKS(500));
+	vTaskDelay(pdMS_TO_TICKS(20000));
 	
 	// =========================
 	// 2. CANAL
