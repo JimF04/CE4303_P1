@@ -34,7 +34,7 @@ void uart_init_led(void)
     uart_set_pin(UART_LED_PORT, 16, 17, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 }
 
-// ── Comandos básicos (uso opcional) ──────────────────────
+// ── Comandos básicos  ──────────────────────
 void send_led(int pos, int r, int g, int b)
 {
     char buf[32];
@@ -52,6 +52,13 @@ void send_all(int r, int g, int b)
 void clear_all(void)
 {
     uart_write_bytes(UART_LED_PORT, "CLR\n", 4);
+}
+
+void send_buque_state(int activo)
+{
+    char buf[16];
+    int len = snprintf(buf, sizeof(buf), "BUQUE %d\n", activo);
+    uart_write_bytes(UART_LED_PORT, buf, len);
 }
 
 // ── Color según tipo ──────────────────────────────────────
@@ -81,6 +88,15 @@ static int canal_pos_to_led(int pos_canal, int largo)
 // Agregar parámetro sched
 void led_render_canal(const canal_t *c, const scheduler_t *sched)
 {
+	// Variable estática para recordar el estado anterior
+    static int buque_anterior = 0;
+
+    // Solo enviamos el comando si el estado cambió
+    if (c->pasa_buque != buque_anterior) {
+        send_buque_state(c->pasa_buque);
+        buque_anterior = c->pasa_buque; // Actualizar el estado anterior
+    }
+	
     int R[LED_TOTAL] = {0};
     int G[LED_TOTAL] = {0};
     int B[LED_TOTAL] = {0};
@@ -93,6 +109,7 @@ void led_render_canal(const canal_t *c, const scheduler_t *sched)
         color_por_tipo(b->tipo, &R[led], &G[led], &B[led]);
     }
 
+		
     // ── Cola izquierda: primero = más cercano al canal (LED 3) ──
     barco_t *cola_izq[BARCOS_MAX];
     int n_izq = sched->get_queue(0, cola_izq, BARCOS_MAX);
