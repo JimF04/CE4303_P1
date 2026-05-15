@@ -12,13 +12,16 @@ extern scheduler_t sched;
 
 
 
-
 static barco_t barcos[BARCOS_MAX]; //lista de barcos
-static int barcos_total = 0; //cuantos barcos existen
 
-static int cantidad = 0; //cuantos barcos existen
+// Cantidad de slots usados (incluyendo slots FREE); nunca decrece
+static int barcos_total = 0; 
 
-static int id_global = 0; //id para los barcos
+// Cantidad de barcos vivos actualmente (decrece al eliminar)
+static int cantidad = 0;
+
+// ID global incremental, cada barco recibe un ID único para siempre
+static int id_global = 0;
 
 // ========================
 //   TAREA DE CADA BARCO
@@ -28,21 +31,22 @@ void barco_task(void *arg)
     barco_t *b = (barco_t *)arg;
 
     while (1) {
+		
+		// Espera hasta que el loop principal le dé una notificación 
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY); //notificacion para que se despierte
 
-
-        //solo mueve
+        // Si el barco está en el canal, avanza su posición
         if (b->pos_canal >= 0) {
             canal_mover_barco(canal_global, b); //usamos el recurso para moverse
         }
 		
+		// Si no terminó, vuelve a READY para el siguiente tick
 		if (b->state != DONE)
 		    b->state = READY;
 		
-		//print_tasks_real();
-
-        if (b->state == DONE) { //si el barco termina:
+		//si el barco termina:
+        if (b->state == DONE) { 
             sched.notify_done(b); //se notifica que ya termino 
             vTaskDelete(NULL); //se elimina ese task
         }
@@ -55,13 +59,14 @@ void barco_task(void *arg)
 // Metodo para crear un barco (proceso)
 barco_t* crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b)
 {
-
+	
+	// Verificar límite de barcos vivos simultáneos
     if (cantidad >= BARCOS_MAX) {
         printf("Límite físico alcanzado (%d barcos)\n", BARCOS_MAX);
         return NULL;
     }
 
-	// Buscar slot libre (id == -1) primero
+	// Buscar un slot liberado por un barco anterior (id == -1 significa FREE)
 	int slot = -1;
 	for (int i = 0; i < barcos_total; i++) {
 	    if (barcos[i].id == -1) {
@@ -70,11 +75,11 @@ barco_t* crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b
 	    }
 	}
 
-	// Si no hay slot libre, expandir al final
+	// Si no hay slot libre, expandir el pool al siguiente índice disponible
 	if (slot == -1) {
 	    if (barcos_total >= BARCOS_MAX) return NULL;
 	    slot = barcos_total;
-	    barcos_total++;  // ← SOLO aquí, no abajo
+	    barcos_total++; 
 	}
 
 	barco_t *b = &barcos[slot];  
@@ -92,14 +97,16 @@ barco_t* crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b
     b->posicion_guardada = -1;  // -1 =  aun no tiene una posicion guardada
     b->state = READY;  //se pone que esta ready para ejecutarse
 
-    asignar_velocidad(cfg, b); //se le asigna la velocidad segun el tipo de barco
-    asignar_prioridad(cfg, b); //se le asigna la prioridad segun el tipo de barco
-    asignar_deadline(cfg, b); //se le asigna el deadline segun el tipo de barco
+	// Asignar atributos según tipo (NOR, PES, PAT)
+    asignar_velocidad(cfg, b); 
+    asignar_prioridad(cfg, b); 
+    asignar_deadline(cfg, b); 
 
-
+	// Nombre único para identificación y debug
     char dir = (direccion_b == 0) ? 'L' : 'R';
     snprintf(b->nombre, sizeof(b->nombre), "%s_%c_%d", tipo_b, dir, b->id);
 
+	// Lanzar el task de FreeRTOS, el puntero b es el argumento
     xTaskCreate(barco_task,b->nombre, 4096, b, 5, &b->handle); //se crea el task, este se empieza a ejecutar automaticamente
 
     id_global++;
@@ -112,8 +119,12 @@ barco_t* crear_barco(const config_t *cfg, const char tipo_b[16], int direccion_b
     return b;
 }
 
+// ========================
+//   ASIGNACIÓN DE ATRIBUTOS
+// ========================
 
 // Metodo para asignar la velocidad a los barcos
+// Velocidad: PAT > PES > NOR
 void asignar_velocidad(const config_t *cfg, barco_t *b)
 {
     int base = cfg->barcos.velocidad_base;
@@ -132,8 +143,8 @@ void asignar_velocidad(const config_t *cfg, barco_t *b)
     }
 }
 
-
-// Metodo para asignar la velocidad a los barcos
+// Metodo para asignar la prioridad a los barcos
+// Prioridad de scheduler: NOR > PAT > PES
 void asignar_prioridad(const config_t *cfg, barco_t *b)
 {
     int base = cfg->barcos.prioridad_base;
@@ -154,6 +165,7 @@ void asignar_prioridad(const config_t *cfg, barco_t *b)
 
 
 // Metodo para asignar el deadline a los barcos
+// Deadline: PAT > PES > NOR
 void asignar_deadline(const config_t *cfg, barco_t *b)
 {
     int base = cfg->barcos.prioridad_base;
@@ -171,6 +183,10 @@ void asignar_deadline(const config_t *cfg, barco_t *b)
         b->deadline = base; // fallback
     }
 }
+
+// ========================
+//   INICIALIZACIÓN
+// ========================
 
 
 // Metodo para crear barcos por default (depende del config)
@@ -216,17 +232,18 @@ void barcos_init(const config_t *cfg)
 // ========================
 //   ELIMINACION DE BARCOS
 // ========================
+
 void eliminar_barco(int index)
 {
     if (index < 0 || index >= barcos_total) return;
 
     barco_t *b = &barcos[index];
-    b->handle  = NULL;
+    b->handle  = NULL; // el task ya se autodestruyó con vTaskDelete
     b->state   = DONE;
     b->pos_canal = -1;
-    b->id      = -1;
+    b->id      = -1;  // marca el slot como reutilizable
     strcpy(b->nombre, "FREE");
-    cantidad--;
+    cantidad--; // un barco menos vivo
 
 }
 
@@ -235,6 +252,7 @@ void eliminar_barco(int index)
 //   ACCESORES
 // ========================
 
+// Retorna el barco en el índice dado, o NULL si está fuera de rango.
 barco_t* barcos_get(int index)
 {
     if (index < 0 || index >= barcos_total) {
@@ -243,6 +261,7 @@ barco_t* barcos_get(int index)
     return &barcos[index];
 }
 
+// Cantidad de slots usados 
 int barcos_count()
 {
     return barcos_total;

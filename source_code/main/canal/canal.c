@@ -7,8 +7,11 @@
 
 extern scheduler_t *scheduler_global;
 
+// ========================
+//    GESTIÓN DEL CANAL
+// ========================
 
-// Setear parametros del canal con el config
+// Inicializar la estructura del canal y sus recursos de sincronización
 void canal_init(canal_t *c, const config_t *cfg)
 {
     c->largo = cfg->canal.largo;
@@ -16,36 +19,42 @@ void canal_init(canal_t *c, const config_t *cfg)
     c->direccion_actual = -1; // canal sin dirección al inicio
 	
     c->ocupacion = 0;
-
+	
+	// Inicializar slots y semáforos por posición
 	for (int i = 0; i < c->largo; i++) {
 	    c->slots[i] = NULL;
-	    c->slot_mutex[i] = xSemaphoreCreateMutex(); // uno por slot
+	    c->slot_mutex[i] = xSemaphoreCreateMutex(); // Mutex para control individual de slot
 	    configASSERT(c->slot_mutex[i] != NULL);
 	}
-
-	c->meta_mutex = xSemaphoreCreateMutex(); // para ocupacion y direccion_actual
+	
+	// Mutex global para metadatos (ocupación, dirección)
+	c->meta_mutex = xSemaphoreCreateMutex(); 
 	configASSERT(c->meta_mutex != NULL);
 	
+	// Configurar política de flujo 
 	c->policy = flow_policy_create(cfg->canal.metodo_flujo, cfg);
 	c->policy->init(c->policy, c, cfg);
-
+	
 	c->pasa_buque = 0;
 }
 
-
+// Verificar si el canal ha llegado a su capacidad máxima física
 int canal_lleno(canal_t *c)
 {
     if (!c) return 1;
 
     xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
-
     int lleno = (c->ocupacion >= c->largo);
-
     xSemaphoreGive(c->meta_mutex);
 
     return lleno;
 }
 
+// ========================
+//    BÚSQUEDA Y FILTRADO
+// ========================
+
+// Buscar el barco con el valor mínimo según criterio (0:vel, 1:prio, 2:id)
 barco_t *canal_barco_min(canal_t *c, int criterio)
 {
     if (!c) return NULL;
@@ -90,7 +99,7 @@ barco_t *canal_barco_min(canal_t *c, int criterio)
     return min;
 }
 
-
+// Buscar el barco con el valor máximo según criterio (0:vel, 1:deadline, 2:id)
 barco_t *canal_barco_max(canal_t *c, int criterio)
 {
     if (!c) return NULL;
@@ -135,7 +144,12 @@ barco_t *canal_barco_max(canal_t *c, int criterio)
     return max;
 }
 
-//recurso que usan los barcos para moverse
+// ========================
+//    MOVIMIENTO Y FLUJO
+// ========================
+
+// Lógica de avance de barcos dentro del canal (control de colisiones y mutex)
+// recurso que usan los barcos para moverse
 void canal_mover_barco(canal_t *c, barco_t *b)
 {
     if (c->pasa_buque || b->pos_canal < 0) return;
@@ -160,7 +174,7 @@ void canal_mover_barco(canal_t *c, barco_t *b)
         }
     }
 
-    // Si no puede completar su movimiento de 3 (o su velocidad), se queda quieto
+    // Si no puede completar su movimiento, se queda quieto
     if (!puede_moverse_completo) return;
 
     // Calcular destino real (limitado por los bordes del canal)
@@ -174,7 +188,8 @@ void canal_mover_barco(canal_t *c, barco_t *b)
 
     xSemaphoreTake(c->slot_mutex[lock_1], portMAX_DELAY);
     if (lock_1 != lock_2) xSemaphoreTake(c->slot_mutex[lock_2], portMAX_DELAY);
-
+	
+	// Ejecutar desplazamiento atómico
     if (c->slots[destino] == NULL) {
         c->slots[destino]    = b;
         c->slots[pos_actual] = NULL;
@@ -214,8 +229,6 @@ void canal_mover_barco(canal_t *c, barco_t *b)
                 c->direccion_actual = -1;
             xSemaphoreGive(c->meta_mutex);
 
-//            if (c->policy && c->policy->notify_salio)
-//                c->policy->notify_salio(c->policy, b->direccion);
 
             printf("[CANAL] Barco %d salió del canal\n", b->id);
         }
@@ -224,15 +237,18 @@ void canal_mover_barco(canal_t *c, barco_t *b)
     }
 }
 
+// Intentar insertar un barco desde la cola al canal físico
 int canal_insertar(canal_t *c, barco_t *b)
 {
     xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
-
+	
+	// Validar si las condiciones de política y espacio permiten la entrada
     if (!canal_puede_entrar(c, b)) {
         xSemaphoreGive(c->meta_mutex);
         return 0;
     }
-
+	
+	// Determinar posición de entrada 
     int pos = (b->posicion_guardada >= 0 &&
                b->posicion_guardada < c->largo &&
                c->slots[b->posicion_guardada] == NULL)
@@ -262,6 +278,7 @@ int canal_insertar(canal_t *c, barco_t *b)
 
 
 // Metodo para verificar si puede entrar al canal
+// Validar reglas de entrada (dirección, espacio de velocidad y políticas)
 int canal_puede_entrar(canal_t *c, barco_t *b)
 {
     if (!b) return 0;
@@ -279,6 +296,24 @@ int canal_puede_entrar(canal_t *c, barco_t *b)
 
     int entrada_real = (b->direccion == 0 ? 0 : c->largo - 1);
     int paso = (b->direccion == 0 ? 1 : -1);
+	
+	// Si el barco tiene una posición guardada (intenta restaurarse)
+	    if (b->posicion_guardada != -1) {
+	        // Verificar que TODO el camino desde la entrada hasta su posición esté despejado
+	        // Esto evita que el barco "salte" por encima de barcos que vienen atrás
+	        int distancia_a_pos = (b->direccion == 0) 
+	                              ? b->posicion_guardada 
+	                              : (c->largo - 1 - b->posicion_guardada);
+
+	        for (int j = 0; j <= distancia_a_pos; j++) {
+	            int check_camino = entrada_real + (j * paso);
+	            
+	            // Si hay un barco en el camino a su posición de restauración, no puede entrar todavía
+	            if (c->slots[check_camino] != NULL) {
+	                return 0; 
+	            }
+	        }
+	    }
 
     // Verificar si los slots necesarios para su velocidad están libres
     // Si es barco velocidad 3, verifica slots 0, 1 y 2.
@@ -297,6 +332,7 @@ int canal_puede_entrar(canal_t *c, barco_t *b)
     return 1;
 }
 
+// Extraer un barco del canal y guardar su estado
 void canal_remover_barco(canal_t *c, barco_t *b)
 {
     
@@ -331,33 +367,51 @@ void canal_remover_barco(canal_t *c, barco_t *b)
 
 }
 
+// ========================
+//    SISTEMA DE BUQUE
+// ========================
 
-
+// Activar la emergencia de paso de buque (desaloja barcos y lanza tarea)
 void canal_viene_buque(canal_t *c){
-
+    // 1. Bloqueo inmediato para evitar que entren nuevos barcos
     c->pasa_buque = 1;
 
-    xSemaphoreTake(c->meta_mutex, portMAX_DELAY); // LOCK
+    xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
 
     for (int i = 0; i < c->largo; i++) {
-            if (c->slots[i] == NULL) continue;
-
+        // Bloqueamos cada slot para asegurar que ningún barco se esté moviendo en ese instante
+        xSemaphoreTake(c->slot_mutex[i], portMAX_DELAY);
+        
+        if (c->slots[i] != NULL) {
             barco_t *b = c->slots[i];
-            b->posicion_guardada = b->pos_canal; //se guarda la posicion para restaurar el estado luego
-	        b->pos_canal = -1; //se pone como que no esta, para que no se dibuje
-            b->state = READY;
-            scheduler_global->enqueue(b);
-          
             
-            c->slots[i] = NULL; //se quita el barco del canal
-	        c->ocupacion--; //se va la ocupacion
+            // Guardamos su posición exacta para la restauración
+            b->posicion_guardada = i; 
+            b->pos_canal = -1; // Lo sacamos visualmente
+            b->state = READY;
+            
+            // IMPORTANTE: Primero limpiamos el slot, luego encolamos
+            c->slots[i] = NULL;
+            c->ocupacion--;
 
-
+            // Lo devolvemos al scheduler para que espere afuera
+            scheduler_global->enqueue(b);
+            
+            printf("[BUQUE] Barco %d desalojado de pos %d\n", b->id, i);
+        }
+        
+        xSemaphoreGive(c->slot_mutex[i]);
     }
 
+    // 2. Resetear estado del canal para que al volver sea "campo libre"
+    if (c->ocupacion <= 0) {
+        c->ocupacion = 0;
+        c->direccion_actual = -1;
+    }
 
     xSemaphoreGive(c->meta_mutex); // UNL
-
+	
+	// Crear tarea de animación del buque
     xTaskCreate(
     buque_task,     // función
     "buque_task",   // nombre
@@ -365,11 +419,11 @@ void canal_viene_buque(canal_t *c){
     (void *)c,           // parámetro
     5,              // prioridad
     NULL            // handle (opcional)
-
-);
+	);
 
 }
 
+// Tarea de animación que representa el paso del buque por la pantalla
 void buque_task(void *pvParameters) {
 	
 	canal_t *c = (canal_t *) pvParameters;
@@ -409,7 +463,10 @@ void buque_task(void *pvParameters) {
     vTaskDelete(NULL);
 }
 
-
+// ========================
+//    VISUALIZACIÓN
+// ========================
+// Imprimir el estado actual del canal en consola
 void canal_print(canal_t *c)
 {
 

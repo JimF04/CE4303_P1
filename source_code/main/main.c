@@ -20,8 +20,6 @@ scheduler_t sched;
 scheduler_t *scheduler_global = &sched;
 
 
-
-
 void app_main(void)
 {
     // =========================
@@ -32,25 +30,24 @@ void app_main(void)
 	    return;
 	}
 
+	// Wifi
 	wifi_init_softap();
 	start_ws_server();
 	
+	// delay para darle chance al UI a conectarse 
 	vTaskDelay(pdMS_TO_TICKS(500));
 	
 	// =========================
 	// 2. CANAL
 	// =========================
 	static canal_t canal;
-	
 	canal_init(&canal, &config);
-	
 	canal_global = &canal;
 	
 	// =========================
 	// 3. SCHEDULER
 	// =========================
 	sched = scheduler_get(&config);
-
 	sched.init(&canal, &config);
 	
 	// =========================
@@ -60,30 +57,20 @@ void app_main(void)
 	    barcos_init(&config);
 	}
 	
-
-
-
-    printf("\n===== INICIO (MODELO DISTRIBUIDO) =====\n");
-
-	
-	
+	// Iniciar leds
 	uart_init_led();
 	
-	
-    // =========================
-    // 5. LOOP PRINCIPAL
-    // =========================
-
-
-
-
-
     // Crear tarea de input
     xTaskCreate(input_task, "input_task", 4096, NULL, 4, NULL);
 	
-    while (1) {
 
-    
+	// =========================
+	// 5. LOOP PRINCIPAL
+	// =========================
+
+	printf("\n===== INICIO (MODELO DISTRIBUIDO) =====\n");
+
+    while (1) {
 
     // =========================
     // LIMPIAR TERMINADOS
@@ -120,7 +107,6 @@ void app_main(void)
 	    if (canal_insertar(&canal, nuevo)) {
 	        nuevo->state = RUNNING;
 	        if (nuevo->handle != NULL)
-	            //xTaskNotifyGive(nuevo->handle);
 				printf("[MAIN] Barco %d insertado, se mueve en el siguiente tick\n", nuevo->id);
 	    } else {
 	        printf("[MAIN] WARN: insert falló para barco %d, re-encolando\n", nuevo->id);
