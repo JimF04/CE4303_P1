@@ -182,7 +182,7 @@ void canal_mover_barco(canal_t *c, barco_t *b)
     if (destino < 0) destino = 0;
     if (destino >= c->largo) destino = c->largo - 1;
 
-    // 2. Bloqueo de slots y movimiento (Tu lógica de mutex actual es correcta)
+    // 2. Bloqueo de slots y movimiento 
     int lock_1 = (pos_actual < destino) ? pos_actual : destino;
     int lock_2 = (pos_actual < destino) ? destino    : pos_actual;
 
