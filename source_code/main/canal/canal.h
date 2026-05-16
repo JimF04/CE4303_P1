@@ -22,6 +22,15 @@ typedef struct{
 	flow_policy_t *policy;
 }canal_t;
 
+typedef struct {
+    int largo;
+    int direccion_actual;
+    int pasa_buque;
+    barco_t *slots[MAX_LARGO];  
+} canal_snapshot_t;
+
+void canal_snapshot(const canal_t *c, canal_snapshot_t *out);
+
 void canal_init(canal_t *c, const config_t *cfg);
 
 int canal_insertar(canal_t *c, barco_t *b);

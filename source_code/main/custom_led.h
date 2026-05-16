@@ -1,76 +1,91 @@
 #ifndef MAIN_CUSTOM_LED_H_
 #define MAIN_CUSTOM_LED_H_
 
-#include <stdio.h>
 #include <string.h>
-#include "driver/uart.h"
+#include "led_strip.h"
+#include "esp_timer.h"
+#include "esp_random.h"
 #include "canal/canal.h"
 #include "barcos/barco.h"
 #include "scheduler/scheduler.h"
 
-#define UART_LED_PORT   UART_NUM_1
-#define LED_TOTAL       29
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+
+// ── Configuración física ──────────────────────────────────────────────────────
+#define LED_GPIO         6
+#define LED_TOTAL        29
+#define LED_BRIGHTNESS   25      // 0-255, equivalente al setBrightness del Arduino
 
 #define LED_IZQ_START    0
 #define LED_IZQ_END      3
 #define LED_CANAL_START  4
-#define LED_CANAL_END   23
-#define LED_DER_START   24
-#define LED_DER_END     27
-#define LED_CANAL_COUNT (LED_CANAL_END - LED_CANAL_START + 1)  // 20 LEDs
+#define LED_CANAL_END    23
+#define LED_DER_START    24
+#define LED_DER_END      27
+#define LED_CANAL_COUNT (LED_CANAL_END - LED_CANAL_START + 1)   // 20 LEDs
 
-// UART init 
-void uart_init_led(void)
+// ── Handle global del strip ───────────────────────────────────────────────────
+static led_strip_handle_t s_strip = NULL;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+void led_strip_init_custom(void)
 {
-    uart_config_t cfg = {
-        .baud_rate  = 115200,
-        .data_bits  = UART_DATA_8_BITS,
-        .parity     = UART_PARITY_DISABLE,
-        .stop_bits  = UART_STOP_BITS_1,
-        .flow_ctrl  = UART_HW_FLOWCTRL_DISABLE
+    led_strip_config_t strip_cfg = {
+        .strip_gpio_num         = LED_GPIO,
+        .max_leds               = LED_TOTAL,
+        .led_model              = LED_MODEL_WS2812,
+        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,  
+        .flags = {
+            .invert_out = false,
+        }
     };
-    uart_driver_install(UART_LED_PORT, 2048, 0, 0, NULL, 0);
-    uart_param_config(UART_LED_PORT, &cfg);
-    uart_set_pin(UART_LED_PORT, 16, 17, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+
+    led_strip_rmt_config_t rmt_cfg = {
+        .clk_src         = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz   = 10 * 1000 * 1000,
+        .mem_block_symbols = 64,
+        .flags = {
+            .with_dma = false,
+        }
+    };
+
+    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_cfg, &rmt_cfg, &s_strip));
+    led_strip_clear(s_strip);
 }
 
-// Comandos básicos 
-void send_led(int pos, int r, int g, int b)
+// ── Helpers internos ──────────────────────────────────────────────────────────
+
+// Aplica el factor de brillo global sobre un canal
+static inline uint8_t _bright(int val)
 {
-    char buf[32];
-    int  len = snprintf(buf, sizeof(buf), "LED %d %d %d %d\n", pos, r, g, b);
-    uart_write_bytes(UART_LED_PORT, buf, len);
+    return (uint8_t)((val * LED_BRIGHTNESS) / 255);
 }
 
-void send_all(int r, int g, int b)
+static void _set_pixel(int pos, int r, int g, int b)
 {
-    char buf[24];
-    int  len = snprintf(buf, sizeof(buf), "ALL %d %d %d\n", r, g, b);
-    uart_write_bytes(UART_LED_PORT, buf, len);
+    if (pos < 0 || pos >= LED_TOTAL) return;
+    led_strip_set_pixel(s_strip, pos, _bright(r), _bright(g), _bright(b));
 }
 
-void clear_all(void)
+static void _clear_all(void)
 {
-    uart_write_bytes(UART_LED_PORT, "CLR\n", 4);
+    led_strip_clear(s_strip);
 }
 
-void send_buque_state(int activo)
-{
-    char buf[16];
-    int len = snprintf(buf, sizeof(buf), "BUQUE %d\n", activo);
-    uart_write_bytes(UART_LED_PORT, buf, len);
-}
-
-// Color según tipo
+// Color según tipo de barco (misma tabla que antes)
 static void color_por_tipo(const char *tipo, int *r, int *g, int *b)
 {
-    if      (strcmp(tipo, "NOR") == 0) { *r = 0;   *g = 0;   *b = 255; }
-    else if (strcmp(tipo, "PES") == 0) { *r = 0;   *g = 255; *b = 0;   }
-    else if (strcmp(tipo, "PAT") == 0) { *r = 255; *g = 0;   *b = 0;   }
-    else                               { *r = 255; *g = 255; *b = 255; }
+    if      (strcmp(tipo, "NOR") == 0) { *r = 0;   *g = 0;   *b = 255; } // Azul
+    else if (strcmp(tipo, "PES") == 0) { *r = 0;   *g = 255; *b = 0;   } // Verde
+    else if (strcmp(tipo, "PAT") == 0) { *r = 255; *g = 0;   *b = 0;   } // Rojo
+    else                               { *r = 255; *g = 255; *b = 255; } // Blanco
 }
 
-// Mapeo pos_canal -> LED 
+// Convierte una posición lógica dentro del canal (0..largo-1)
+// a un índice físico de LED (LED_CANAL_START..LED_CANAL_END)
+// usando interpolación lineal para distribuir uniformemente
 static int canal_pos_to_led(int pos_canal, int largo)
 {
     if (largo <= 1) return LED_CANAL_START;
@@ -80,87 +95,71 @@ static int canal_pos_to_led(int pos_canal, int largo)
 
     if (led < LED_CANAL_START) led = LED_CANAL_START;
     if (led > LED_CANAL_END)   led = LED_CANAL_END;
-
     return led;
 }
 
-// Render completo via FRAME 
-// Agregar parámetro sched
+// ── Render principal ──────────────────────────────────────────────────────────
 void led_render_canal(const canal_t *c, const scheduler_t *sched)
 {
-	// Variable estática para recordar el estado anterior
-    static int buque_anterior = 0;
+    static int64_t last_buque_us = 0;
 
-    // Solo enviamos el comando si el estado cambió
-    if (c->pasa_buque != buque_anterior) {
-        send_buque_state(c->pasa_buque);
-        buque_anterior = c->pasa_buque; // Actualizar el estado anterior
-    }
-	
-    int R[LED_TOTAL] = {0};
-    int G[LED_TOTAL] = {0};
-    int B[LED_TOTAL] = {0};
+	// Obtener snapshot atómico del estado del canal
+    canal_snapshot_t snap;
+    canal_snapshot(c, &snap);
 
-    // Barcos en el canal 
-    for (int i = 0; i < c->largo; i++) {
-        barco_t *b = c->slots[i];
-        if (!b) continue;
-        int led = canal_pos_to_led(i, c->largo);
-        color_por_tipo(b->tipo, &R[led], &G[led], &B[led]);
-    }
+    int R[LED_TOTAL] = {0}, G[LED_TOTAL] = {0}, B[LED_TOTAL] = {0};
 
-		
-    //Cola izquierda: primero = más cercano al canal (LED 3) 
+    // ── Colas siempre, buque o no ────────────────────────────────────────────
     barco_t *cola_izq[BARCOS_MAX];
     int n_izq = sched->get_queue(0, cola_izq, BARCOS_MAX);
-
     for (int i = 0; i < n_izq && (LED_IZQ_END - i) >= LED_IZQ_START; i++) {
-        barco_t *b = cola_izq[i];
-        if (!b) continue;
-        int led = LED_IZQ_END - i;   // primero -> LED 3, segundo -> LED 2 ...
+        if (!cola_izq[i]) continue;
+        int led = LED_IZQ_END - i;
         int r, g, bl;
-        color_por_tipo(b->tipo, &r, &g, &bl);
-        R[led] = r  / 3;
-        G[led] = g  / 3;
-        B[led] = bl / 3;
+        color_por_tipo(cola_izq[i]->tipo, &r, &g, &bl);
+        R[led] = r/3; G[led] = g/3; B[led] = bl/3;
     }
 
-    // ── Cola derecha: primero = más cercano al canal (LED 24) ──
     barco_t *cola_der[BARCOS_MAX];
     int n_der = sched->get_queue(1, cola_der, BARCOS_MAX);
-
     for (int i = 0; i < n_der && (LED_DER_START + i) <= LED_DER_END; i++) {
-        barco_t *b = cola_der[i];
-        if (!b) continue;
-        int led = LED_DER_START + i;  // primero -> LED 24, segundo -> LED 25 ...
+        if (!cola_der[i]) continue;
+        int led = LED_DER_START + i;
         int r, g, bl;
-        color_por_tipo(b->tipo, &r, &g, &bl);
-        R[led] = r  / 3;
-        G[led] = g  / 3;
-        B[led] = bl / 3;
-    }
-	
-	// LED 28: indicador de dirección del canal
-	if (c->direccion_actual == 0) {
-	    // Izquierda -> amarillo
-	    R[28] = 255; G[28] = 165; B[28] = 0;
-	} else {
-	    // Derecha -> cian
-	    R[28] = 0; G[28] = 255; B[28] = 255;
-	}
-
-    //  Construir y enviar FRAME 
-    char frame[512];
-    int  pos = snprintf(frame, sizeof(frame), "FRAME ");
-
-    for (int i = 0; i < LED_TOTAL; i++) {
-        pos += snprintf(frame + pos, sizeof(frame) - pos,
-                        "%d,%d,%d%s",
-                        R[i], G[i], B[i],
-                        i < LED_TOTAL - 1 ? ";" : "\n");
+        color_por_tipo(cola_der[i]->tipo, &r, &g, &bl);
+        R[led] = r/3; G[led] = g/3; B[led] = bl/3;
     }
 
-    uart_write_bytes(UART_LED_PORT, frame, pos);
+    // ── LED 28: dirección siempre ─────────────────────────────────────────────
+    if (snap.direccion_actual == 0)      { R[28]=255; G[28]=165; B[28]=0;   }
+    else if (snap.direccion_actual == 1) { R[28]=0;   G[28]=255; B[28]=255; }
+    // si es -1 (sin dirección), queda apagado
+
+    if (snap.pasa_buque) {
+        // Animar canal con colores random, respetar colas ya calculadas
+        int64_t now = esp_timer_get_time();
+        if (now - last_buque_us >= 100 * 1000) {
+            last_buque_us = now;
+            for (int i = LED_CANAL_START; i <= LED_CANAL_END; i++) {
+                R[i] = esp_random() % 256;
+                G[i] = esp_random() % 256;
+                B[i] = esp_random() % 256;
+            }
+            for (int i = 0; i < LED_TOTAL; i++) _set_pixel(i, R[i], G[i], B[i]);
+            led_strip_refresh(s_strip);
+        }
+        return;
+    }
+
+    // ── Canal normal ──────────────────────────────────────────────────────────
+    for (int i = 0; i < snap.largo; i++) {
+        if (!snap.slots[i]) continue;
+        int led = canal_pos_to_led(i, snap.largo);
+        color_por_tipo(snap.slots[i]->tipo, &R[led], &G[led], &B[led]);
+    }
+
+    for (int i = 0; i < LED_TOTAL; i++) _set_pixel(i, R[i], G[i], B[i]);
+    led_strip_refresh(s_strip);
 }
 
 #endif /* MAIN_CUSTOM_LED_H_ */

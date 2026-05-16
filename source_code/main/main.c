@@ -35,7 +35,7 @@ void app_main(void)
 	start_ws_server();
 	
 	// delay para darle chance al UI a conectarse 
-	vTaskDelay(pdMS_TO_TICKS(20000));
+	//vTaskDelay(pdMS_TO_TICKS(20000));
 	
 	// =========================
 	// 2. CANAL
@@ -58,9 +58,17 @@ void app_main(void)
 	}
 	
 	// Iniciar leds
-	uart_init_led();
-	
-    // Crear tarea de input
+	//uart_init_led();
+	//led_strip_init_custom();
+
+
+	// Junto a las otras declaraciones estáticas, antes del while:
+	static TaskHandle_t led_task_handle = NULL;
+
+
+	led_strip_init_custom();
+
+	// Crear tarea de input
     xTaskCreate(input_task, "input_task", 4096, NULL, 4, NULL);
 	
 
@@ -136,9 +144,9 @@ void app_main(void)
     // =========================
     // DEBUG
     // =========================
-	led_render_canal(&canal, &sched);
-    canal_print(&canal);
+	canal_print(&canal);
 	godot_export_state(&canal, &sched);
+	led_render_canal(&canal, &sched);
 	
     vTaskDelay(pdMS_TO_TICKS(500)); 
     }

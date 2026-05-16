@@ -488,7 +488,15 @@ void canal_print(canal_t *c)
     printf("]\n");
     xSemaphoreGive(c->meta_mutex); // UNLOCK
 
+}
 
-
-
+void canal_snapshot(const canal_t *c, canal_snapshot_t *out)
+{
+    xSemaphoreTake(c->meta_mutex, portMAX_DELAY);
+    out->largo            = c->largo;
+    out->direccion_actual = c->direccion_actual;
+    out->pasa_buque       = c->pasa_buque;
+    for (int i = 0; i < c->largo; i++)
+        out->slots[i] = c->slots[i];
+    xSemaphoreGive(c->meta_mutex);
 }
