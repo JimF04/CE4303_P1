@@ -14,7 +14,7 @@
 #include "freertos/semphr.h"
 
 // ── Configuración física ──────────────────────────────────────────────────────
-#define LED_GPIO         6
+#define LED_GPIO         22
 #define LED_TOTAL        29
 #define LED_BRIGHTNESS   25      // 0-255, equivalente al setBrightness del Arduino
 
