@@ -16,7 +16,7 @@
 // ── Configuración física ──────────────────────────────────────────────────────
 #define LED_GPIO         22
 #define LED_TOTAL        29
-#define LED_BRIGHTNESS   25      // 0-255, equivalente al setBrightness del Arduino
+#define LED_BRIGHTNESS   25    
 
 #define LED_IZQ_START    0
 #define LED_IZQ_END      3
@@ -74,7 +74,7 @@ static void _clear_all(void)
     led_strip_clear(s_strip);
 }
 
-// Color según tipo de barco (misma tabla que antes)
+// Color según tipo de barco 
 static void color_por_tipo(const char *tipo, int *r, int *g, int *b)
 {
     if      (strcmp(tipo, "NOR") == 0) { *r = 0;   *g = 0;   *b = 255; } // Azul
